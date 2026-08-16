@@ -3,6 +3,7 @@ import { Text } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { colors } from "../theme";
 import { AdminEmployeesScreen } from "../screens/admin/AdminEmployeesScreen";
+import { AdminAttendanceScreen } from "../screens/admin/AdminAttendanceScreen";
 import { AdminPayrollScreen } from "../screens/admin/AdminPayrollScreen";
 import { AdminHolidaysScreen } from "../screens/admin/AdminHolidaysScreen";
 import { AdminLeavesScreen } from "../screens/admin/AdminLeavesScreen";
@@ -27,6 +28,11 @@ export function AdminTabs() {
         name="Employees"
         component={AdminEmployeesScreen}
         options={{ title: "พนักงาน", tabBarIcon: icon("👤") }}
+      />
+      <Tab.Screen
+        name="Attendance"
+        component={AdminAttendanceScreen}
+        options={{ title: "ตอกบัตร", tabBarIcon: icon("🕘") }}
       />
       <Tab.Screen
         name="Payroll"

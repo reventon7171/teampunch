@@ -6,6 +6,7 @@ import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Tag } from "../../components/Tag";
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { PhotoViewerModal } from "../../components/PhotoViewerModal";
 import { getAllLeaves, setLeaveStatus, deleteLeave } from "../../api/leaves";
 import { getAllDayOffSwaps, setDayOffSwapStatus, deleteDayOffSwap } from "../../api/dayOffSwaps";
 import { listEmployees } from "../../api/employees";
@@ -35,6 +36,8 @@ function LeaveApprovalSection() {
   const { data: leaves } = useQuery({ queryKey: ["adminLeaves"], queryFn: () => getAllLeaves() });
   const { data: employees } = useQuery({ queryKey: ["employees"], queryFn: listEmployees });
   const [error, setError] = useState("");
+  const [photoPath, setPhotoPath] = useState<string | null>(null);
+  const [photoTitle, setPhotoTitle] = useState("");
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: "APPROVED" | "REJECTED" }) => setLeaveStatus(id, status),
@@ -78,6 +81,16 @@ function LeaveApprovalSection() {
             />
           </View>
           <View style={styles.actionsRow}>
+            {lv.hasPhoto && (
+              <Button
+                title="ดูเอกสารแนบ"
+                variant="ghost"
+                onPress={() => {
+                  setPhotoPath(`/api/leaves/${lv.id}/photo`);
+                  setPhotoTitle(`${nameOf(lv.employeeId)} · เอกสารแนบ`);
+                }}
+              />
+            )}
             {lv.status !== "APPROVED" && (
               <Button title="อนุมัติ" variant="green" onPress={() => statusMutation.mutate({ id: lv.id, status: "APPROVED" })} />
             )}
@@ -88,6 +101,8 @@ function LeaveApprovalSection() {
           </View>
         </Card>
       ))}
+
+      <PhotoViewerModal path={photoPath} title={photoTitle} onClose={() => setPhotoPath(null)} />
     </>
   );
 }
