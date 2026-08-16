@@ -56,6 +56,12 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e37c69af-8ccd-4704-994e-47ba1fa545a0"
+      }
+    },
+    "owner": "reventon13"
   }
 }
