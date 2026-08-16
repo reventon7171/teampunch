@@ -1,15 +1,14 @@
 import { Router } from "express";
-import fs from "fs";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { upload, resolveUploadPath } from "../lib/upload";
+import { upload, randomPhotoKey } from "../lib/upload";
+import { savePhoto, readPhoto } from "../lib/storage";
 import { punchSchema, attendanceQuerySchema } from "../validators/attendance.validators";
 import { serializeAttendance, serializeDutyAssignment, toPayrollEmployee } from "../lib/serialize";
 import { badRequest, conflict, notFound, forbidden } from "../lib/errors";
 import { todayStrBangkok, nowHHMMBangkok } from "../lib/thaiTime";
 import { pickRandomDutyOption } from "../lib/duties";
-import { syncPhotoToDrive } from "../lib/googleDrive";
 import { distanceMeters } from "../lib/geo";
 import {
   isDayOff,
@@ -107,6 +106,9 @@ router.post(
     const deductionHours = lateDeductionHours(lateMinutes);
     const deductionAmount = deductionHours * hourlyRate(payrollEmp);
 
+    const photoKey = randomPhotoKey(`org/${organizationId}/emp/${emp.id}/checkin`, req.file.mimetype);
+    await savePhoto(photoKey, req.file.buffer, req.file.mimetype);
+
     const record = await prisma.attendance.upsert({
       where: { employeeId_date: { employeeId: emp.id, date } },
       create: {
@@ -116,7 +118,7 @@ router.post(
         checkInTime: time,
         checkInLat: lat,
         checkInLng: lng,
-        checkInPhotoPath: req.file.filename,
+        checkInPhotoPath: photoKey,
         lateMinutes,
         deductionHours,
         deductionAmount,
@@ -125,7 +127,7 @@ router.post(
         checkInTime: time,
         checkInLat: lat,
         checkInLng: lng,
-        checkInPhotoPath: req.file.filename,
+        checkInPhotoPath: photoKey,
         lateMinutes,
         deductionHours,
         deductionAmount,
@@ -154,14 +156,6 @@ router.post(
       }
     }
 
-    // best-effort mirror to Google Drive — never awaited into the response, never blocks check-in
-    syncPhotoToDrive(
-      emp.id,
-      resolveUploadPath(req.file.filename),
-      `checkin_${date}_${time.replace(":", "-")}.jpg`,
-      req.file.mimetype
-    ).catch(() => {});
-
     res.status(201).json({ ...serializeAttendance(record), duty });
   })
 );
@@ -188,17 +182,13 @@ router.post(
       throw conflict(`เช็คเอาท์ได้ไม่เกิน 1 ชั่วโมงหลังเวลาเลิกงาน (${emp.workEnd})`);
     }
 
+    const photoKey = randomPhotoKey(`org/${organizationId}/emp/${emp.id}/checkout`, req.file.mimetype);
+    await savePhoto(photoKey, req.file.buffer, req.file.mimetype);
+
     const record = await prisma.attendance.update({
       where: { id: existing.id },
-      data: { checkOutTime: time, checkOutLat: lat, checkOutLng: lng, checkOutPhotoPath: req.file.filename },
+      data: { checkOutTime: time, checkOutLat: lat, checkOutLng: lng, checkOutPhotoPath: photoKey },
     });
-
-    syncPhotoToDrive(
-      emp.id,
-      resolveUploadPath(req.file.filename),
-      `checkout_${date}_${time.replace(":", "-")}.jpg`,
-      req.file.mimetype
-    ).catch(() => {});
 
     res.json(serializeAttendance(record));
   })
@@ -290,12 +280,13 @@ router.get(
     if (!record) throw notFound("บันทึกการตอกบัตร");
     if (req.user!.role !== "admin" && req.user!.id !== record.employeeId) throw forbidden();
 
-    const photoPath = kind === "in" ? record.checkInPhotoPath : record.checkOutPhotoPath;
-    if (!photoPath) throw notFound("รูปถ่าย");
+    const photoKey = kind === "in" ? record.checkInPhotoPath : record.checkOutPhotoPath;
+    if (!photoKey) throw notFound("รูปถ่าย");
 
-    const absPath = resolveUploadPath(photoPath);
-    if (!fs.existsSync(absPath)) throw notFound("รูปถ่าย");
-    res.sendFile(absPath);
+    const photo = await readPhoto(photoKey);
+    if (!photo) throw notFound("รูปถ่าย");
+    if (photo.contentType) res.type(photo.contentType);
+    photo.stream.pipe(res);
   })
 );
 

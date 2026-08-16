@@ -1,5 +1,5 @@
 {
-  "name": "punch-card-backend",
+  "name": "teampunch-backend",
   "version": "1.0.0",
   "private": true,
   "description": "Backend API for employee check-in and payroll system",
@@ -10,20 +10,19 @@
     "start": "prisma migrate deploy && node dist/src/index.js",
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
-    "drive:auth": "tsx scripts/googleDriveAuth.ts",
     "test": "jest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1111.0",
     "@prisma/client": "^5.20.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.1",
-    "googleapis": "^174.0.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",

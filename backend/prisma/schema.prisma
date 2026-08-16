@@ -58,7 +58,6 @@ model Employee {
   passwordHash String
   active       Boolean  @default(true)
   dutyRotationEnabled Boolean @default(false) // opts this employee into the random daily cleaning-duty rotation at check-in (previously hardcoded to position === "เสิร์ฟ")
-  driveFolderId String? // Google Drive folder id for this employee's synced photos — created lazily on first upload
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

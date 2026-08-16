@@ -1,13 +1,12 @@
 import { Router } from "express";
-import fs from "fs";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { upload, resolveUploadPath } from "../lib/upload";
+import { upload, randomPhotoKey } from "../lib/upload";
+import { savePhoto, readPhoto } from "../lib/storage";
 import { createLeaveSchema, leaveStatusSchema, leaveQuerySchema } from "../validators/leave.validators";
 import { serializeLeave } from "../lib/serialize";
 import { notFound, forbidden } from "../lib/errors";
-import { syncPhotoToDrive } from "../lib/googleDrive";
 
 const router = Router();
 router.use(requireAuth);
@@ -18,26 +17,25 @@ router.post(
   upload.single("photo"),
   asyncHandler(async (req, res) => {
     const input = createLeaveSchema.parse(req.body);
+    const organizationId = req.user!.organizationId;
+
+    let photoKey: string | undefined;
+    if (req.file) {
+      photoKey = randomPhotoKey(`org/${organizationId}/emp/${req.user!.id}/leave`, req.file.mimetype);
+      await savePhoto(photoKey, req.file.buffer, req.file.mimetype);
+    }
+
     const leave = await prisma.leave.create({
       data: {
-        organizationId: req.user!.organizationId,
+        organizationId,
         employeeId: req.user!.id,
         date: input.date,
         type: input.type,
         reason: input.reason,
-        photoPath: req.file?.filename,
+        photoPath: photoKey,
         status: "PENDING",
       },
     });
-
-    if (req.file) {
-      syncPhotoToDrive(
-        leave.employeeId,
-        resolveUploadPath(req.file.filename),
-        `leave_${leave.date}_${leave.type}.jpg`,
-        req.file.mimetype
-      ).catch(() => {});
-    }
 
     res.status(201).json(serializeLeave(leave));
   })
@@ -109,9 +107,10 @@ router.get(
     if (req.user!.role !== "admin" && req.user!.id !== leave.employeeId) throw forbidden();
     if (!leave.photoPath) throw notFound("รูปเอกสาร");
 
-    const absPath = resolveUploadPath(leave.photoPath);
-    if (!fs.existsSync(absPath)) throw notFound("รูปเอกสาร");
-    res.sendFile(absPath);
+    const photo = await readPhoto(leave.photoPath);
+    if (!photo) throw notFound("รูปเอกสาร");
+    if (photo.contentType) res.type(photo.contentType);
+    photo.stream.pipe(res);
   })
 );
 
