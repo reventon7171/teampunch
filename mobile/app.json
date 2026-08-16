@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "บขส. บาร์",
-    "slug": "punch-card-mobile",
+    "name": "TeamPunch",
+    "slug": "teampunch",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -11,7 +11,7 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.bxsbar.punchcard",
+      "bundleIdentifier": "com.teampunch.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "แอปนี้ต้องใช้ตำแหน่ง GPS เพื่อยืนยันสถานที่ตอนเช็คอิน",
         "NSCameraUsageDescription": "แอปนี้ต้องใช้กล้องเพื่อถ่ายรูปยืนยันตัวตนตอนเช็คอิน และแนบเอกสารประกอบการลา",
@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "package": "com.bxsbar.punchcard",
+      "package": "com.teampunch.app",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -28,7 +28,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#F15002"
+        "backgroundColor": "#1BA893"
       }
     },
     "web": {
@@ -52,16 +52,10 @@
         {
           "image": "./assets/icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#F15002"
+          "backgroundColor": "#1BA893"
         }
       ],
       "expo-secure-store"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "ef06a54c-b3e7-4a10-9ace-512fe609794f"
-      }
-    },
-    "owner": "bks-bar"
+    ]
   }
 }

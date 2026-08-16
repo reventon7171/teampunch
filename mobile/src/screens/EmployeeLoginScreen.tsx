@@ -9,26 +9,41 @@ import { useAuth } from "../context/AuthContext";
 import { colors, fontSize, spacing } from "../theme";
 
 export function EmployeeLoginScreen() {
-  const { loginEmployee, error, clearError } = useAuth();
+  const { loginEmployee, error, clearError, lastSlug } = useAuth();
+  const [slug, setSlug] = useState(lastSlug);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
     setLoading(true);
-    await loginEmployee(username.trim(), password);
+    await loginEmployee(slug.trim().toLowerCase(), username.trim(), password);
     setLoading(false);
   };
 
   return (
     <Screen>
       <Text style={styles.title}>เข้าสู่ระบบพนักงาน</Text>
-      <Text style={styles.sub}>ใช้ Username / Password ที่แอดมินตั้งให้ — ข้อมูลเงินเดือนของแต่ละคนเป็นความลับ</Text>
+      <Text style={styles.sub}>ใช้รหัสร้าน/บริษัท และ Username / Password ที่แอดมินตั้งให้ — ข้อมูลเงินเดือนของแต่ละคนเป็นความลับ</Text>
       <ErrorBanner message={error} onDismiss={clearError} />
       <Card>
+        <TextField
+          label="รหัสร้าน/บริษัท"
+          value={slug}
+          onChangeText={setSlug}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="เช่น somchai-cafe"
+        />
         <TextField label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
         <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry />
-        <Button title="เข้าสู่ระบบ" onPress={submit} disabled={!username || !password} loading={loading} fullWidth />
+        <Button
+          title="เข้าสู่ระบบ"
+          onPress={submit}
+          disabled={!slug || !username || !password}
+          loading={loading}
+          fullWidth
+        />
       </Card>
     </Screen>
   );

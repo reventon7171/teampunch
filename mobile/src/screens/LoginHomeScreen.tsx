@@ -10,8 +10,8 @@ export function LoginHomeScreen({ navigation }: NativeStackScreenProps<any>) {
       <View style={styles.brandRow}>
         <Image source={require("../../assets/icon.png")} style={styles.logo} />
         <View style={styles.brandText}>
-          <Text style={styles.brand}>บขส. บาร์</Text>
-          <Text style={styles.tagline}>ระบบเช็คอินพนักงาน + คำนวณเงินเดือน</Text>
+          <Text style={styles.brand}>TeamPunch</Text>
+          <Text style={styles.tagline}>เช็คอินพนักงาน + คำนวณเงินเดือน ในที่เดียว</Text>
         </View>
       </View>
 
@@ -23,6 +23,10 @@ export function LoginHomeScreen({ navigation }: NativeStackScreenProps<any>) {
 
       <Pressable style={styles.adminLink} onPress={() => navigation.navigate("AdminLogin")}>
         <Text style={styles.adminLinkText}>สำหรับแอดมิน / ฝ่ายบุคคล</Text>
+      </Pressable>
+
+      <Pressable style={styles.registerLink} onPress={() => navigation.navigate("AdminRegister")}>
+        <Text style={styles.registerLinkText}>ยังไม่มีบัญชี? สมัครใช้งานฟรี</Text>
       </Pressable>
     </Screen>
   );
@@ -53,4 +57,6 @@ const styles = StyleSheet.create({
   },
   adminLink: { alignSelf: "center", padding: spacing.sm },
   adminLinkText: { fontSize: fontSize.sm, color: colors.inkSoft, fontWeight: "600" },
+  registerLink: { alignSelf: "center", padding: spacing.sm },
+  registerLinkText: { fontSize: fontSize.sm, color: colors.navy, fontWeight: "700" },
 });

@@ -8,12 +8,18 @@ import { prisma } from "./prisma";
 // the source of truth the app actually serves photos from; Drive is a best-effort mirror
 // for HR/admin to browse, organized one folder per employee.
 //
+// IMPORTANT for the multi-tenant fork: this whole feature is a SINGLE Drive account shared
+// process-wide, not scoped per Organization — enabling it would mirror every tenant's
+// check-in photos into one operator-owned Drive, which is a cross-tenant privacy leak. Leave
+// GOOGLE_OAUTH_* unset (the default) so it stays a no-op until it's redesigned to be
+// per-organization (e.g. each org connects its own Drive/Google Workspace).
+//
 // Uses OAuth2 with the shop owner's own Google account (not a service account) — service
 // accounts have no storage quota of their own outside a paid Google Workspace "Shared Drive",
 // so files created directly by one fail. Authorizing as a real account sidesteps that and
 // works with a plain free Gmail account. Run `npm run drive:auth` once to get the refresh
 // token (see scripts/googleDriveAuth.ts and README.md).
-const ROOT_FOLDER_NAME = "บขส. บาร์ - รูปตอกบัตร";
+const ROOT_FOLDER_NAME = "TeamPunch - รูปตอกบัตร";
 
 let driveClient: drive_v3.Drive | null = null;
 let rootFolderIdCache: string | null = null;

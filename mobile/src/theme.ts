@@ -1,30 +1,30 @@
-// Color tokens carried over from the prototype's CSS variables (punch_card_app_1.jsx).
+// TeamPunch brand palette — bright, friendly tone (teal primary + warm coral accent).
 export const colors = {
-  paper: "#ECE8D9",
-  card: "#FBF9F2",
-  ink: "#20302A",
-  inkSoft: "#4A5C53",
-  line: "#C9C1A4",
-  red: "#B23A2E",
-  redBg: "#F7E3E0",
-  green: "#3D6B4E",
-  greenBg: "#DCEBE1",
-  amber: "#B9791F",
-  amberBg: "#F3E6CC",
-  navy: "#F15002",
-  brandDark: "#131313",
+  paper: "#FBF8EF",
+  card: "#FFFFFF",
+  ink: "#1D2A26",
+  inkSoft: "#5B6C65",
+  line: "#E4DFC8",
+  red: "#C0392B",
+  redBg: "#FBE4E1",
+  green: "#1E9E6F",
+  greenBg: "#DDF3E9",
+  amber: "#C08A1D",
+  amberBg: "#F6EBD0",
+  navy: "#1BA893", // primary brand color (buttons, CTAs, active tabs)
+  brandDark: "#0E4D45", // header/nav background
   white: "#FFFFFF",
 
-  // modern black/orange redesign tokens (PunchScreen + DutyPopup) — added alongside the
-  // original palette above rather than replacing it, so other screens are untouched for now
+  // modern redesign tokens (PunchScreen + DutyPopup) — accent used for the punch button etc.
   black: "#0D0D0D",
   blackSoft: "#1A1A1A",
   onBlackMuted: "#8A8A8A",
   onBlackFaint: "#B8B8B8",
-  cream: "#F7F5F0",
+  cream: "#FBF8EF",
   creamLine: "#E5E2D8",
   creamInk: "#0D0D0D",
   creamInkMuted: "#8A8880",
+  accent: "#FF7A45", // warm coral, used for the check-in punch button
 };
 
 export const spacing = {

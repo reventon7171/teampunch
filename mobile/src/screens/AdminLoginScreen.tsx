@@ -9,14 +9,15 @@ import { useAuth } from "../context/AuthContext";
 import { colors, fontSize, spacing } from "../theme";
 
 export function AdminLoginScreen() {
-  const { loginAdmin, error, clearError } = useAuth();
+  const { loginAdmin, error, clearError, lastSlug } = useAuth();
+  const [slug, setSlug] = useState(lastSlug);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
     setLoading(true);
-    await loginAdmin(username.trim(), password);
+    await loginAdmin(slug.trim().toLowerCase(), username.trim(), password);
     setLoading(false);
   };
 
@@ -26,9 +27,23 @@ export function AdminLoginScreen() {
       <Text style={styles.sub}>กรุณาเข้าสู่ระบบเพื่อจัดการพนักงานและดูรายงานเงินเดือน</Text>
       <ErrorBanner message={error} onDismiss={clearError} />
       <Card>
+        <TextField
+          label="รหัสร้าน/บริษัท"
+          value={slug}
+          onChangeText={setSlug}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="เช่น somchai-cafe"
+        />
         <TextField label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} />
         <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry />
-        <Button title="เข้าสู่ระบบ" onPress={submit} disabled={!username || !password} loading={loading} fullWidth />
+        <Button
+          title="เข้าสู่ระบบ"
+          onPress={submit}
+          disabled={!slug || !username || !password}
+          loading={loading}
+          fullWidth
+        />
       </Card>
     </Screen>
   );

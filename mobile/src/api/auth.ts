@@ -1,18 +1,40 @@
 import { api } from "./client";
 import { Employee } from "./types";
 
-export const adminLogin = async (username: string, password: string) => {
+export const adminLogin = async (slug: string, username: string, password: string) => {
   const { data } = await api.post<{ token: string; admin: { id: string; username: string } }>(
     "/api/auth/admin/login",
-    { username, password }
+    { slug, username, password }
   );
   return data;
 };
 
-export const employeeLogin = async (username: string, password: string) => {
+export const employeeLogin = async (slug: string, username: string, password: string) => {
   const { data } = await api.post<{ token: string; employee: Employee }>("/api/auth/employee/login", {
+    slug,
     username,
     password,
+  });
+  return data;
+};
+
+export type RegisterOrgResult = {
+  token: string;
+  organization: { id: string; name: string; slug: string };
+  admin: { id: string; username: string };
+};
+
+export const registerOrg = async (
+  organizationName: string,
+  slug: string,
+  adminUsername: string,
+  adminPassword: string
+) => {
+  const { data } = await api.post<RegisterOrgResult>("/api/auth/admin/register", {
+    organizationName,
+    slug: slug || undefined,
+    adminUsername,
+    adminPassword,
   });
   return data;
 };
