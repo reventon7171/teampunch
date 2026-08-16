@@ -6,6 +6,7 @@ import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
+import { DateField } from "../../components/DateField";
 import { Tag } from "../../components/Tag";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { getMyLeaves, requestLeave } from "../../api/leaves";
@@ -86,7 +87,7 @@ function LeaveSection() {
         {!showForm && <Button title="+ ยื่นคำขอลา" onPress={() => setShowForm(true)} />}
         {showForm && (
           <View>
-            <TextField label="วันที่ลา (YYYY-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-08-20" />
+            <DateField label="วันที่ลา" value={date} onChange={setDate} />
             <Text style={styles.label}>ประเภทการลา</Text>
             <View style={styles.typeRow}>
               {LEAVE_TYPES.map((t) => (
@@ -169,17 +170,17 @@ function SwapSection({ daysOff }: { daysOff: number[] }) {
         {!showForm && <Button title="+ ขอสลับวันหยุด" onPress={() => setShowForm(true)} />}
         {showForm && (
           <View>
-            <TextField
-              label="วันหยุดเดิมที่จะขอมาทำงานแทน (YYYY-MM-DD)"
+            <DateField
+              label="วันหยุดเดิมที่จะขอมาทำงานแทน (ต้องตรงกับวันหยุดประจำสัปดาห์ของคุณ)"
               value={originalOffDate}
-              onChangeText={setOriginalOffDate}
-              placeholder="ต้องตรงกับวันหยุดประจำสัปดาห์ของคุณ"
+              onChange={setOriginalOffDate}
+              yearRange={[new Date().getFullYear(), new Date().getFullYear() + 1]}
             />
-            <TextField
-              label="วันที่จะขอหยุดแทน (YYYY-MM-DD)"
+            <DateField
+              label="วันที่จะขอหยุดแทน (ต้องเป็นวันทำงานปกติ)"
               value={swappedToDate}
-              onChangeText={setSwappedToDate}
-              placeholder="ต้องเป็นวันทำงานปกติ"
+              onChange={setSwappedToDate}
+              yearRange={[new Date().getFullYear(), new Date().getFullYear() + 1]}
             />
             <TextField label="เหตุผล (ถ้ามี)" value={reason} onChangeText={setReason} />
             <Text style={styles.note}>

@@ -5,6 +5,8 @@ import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
+import { TimeField } from "../../components/TimeField";
+import { DateField } from "../../components/DateField";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { Tag } from "../../components/Tag";
 import { createEmployee, deleteEmployee, updateEmployee, listEmployees, EmployeeInput } from "../../api/employees";
@@ -187,13 +189,12 @@ export function AdminEmployeesScreen() {
             value={form.password}
             onChangeText={(v) => setForm({ ...form, password: v })}
           />
-          <TextField label="เวลาเข้างาน (HH:MM)" value={form.workStart} onChangeText={(v) => setForm({ ...form, workStart: v })} placeholder="09:00" />
-          <TextField label="เวลาออกงาน (HH:MM)" value={form.workEnd} onChangeText={(v) => setForm({ ...form, workEnd: v })} placeholder="18:00" />
-          <TextField
-            label="วันที่เริ่มงาน (YYYY-MM-DD)"
+          <TimeField label="เวลาเข้างาน" value={form.workStart} onChange={(v) => setForm({ ...form, workStart: v })} />
+          <TimeField label="เวลาออกงาน" value={form.workEnd} onChange={(v) => setForm({ ...form, workEnd: v })} />
+          <DateField
+            label="วันที่เริ่มงาน"
             value={form.hireDate}
-            onChangeText={(v) => setForm({ ...form, hireDate: v })}
-            placeholder="2026-08-20"
+            onChange={(v) => setForm({ ...form, hireDate: v })}
           />
 
           <Text style={styles.label}>วันหยุดประจำสัปดาห์ของคนนี้</Text>

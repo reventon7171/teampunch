@@ -5,6 +5,7 @@ import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
+import { DateField } from "../../components/DateField";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { createHoliday, deleteHoliday, listHolidays } from "../../api/holidays";
 import { todayStr } from "../../utils/period";
@@ -46,7 +47,7 @@ export function AdminHolidaysScreen() {
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       <Card>
-        <TextField label="วันที่ (YYYY-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-08-15" />
+        <DateField label="วันที่" value={date} onChange={setDate} />
         <TextField label="ชื่อวันหยุด" value={name} onChangeText={setName} placeholder="เช่น วันแม่แห่งชาติ" />
         <Button title="+ เพิ่มวันหยุด" variant="green" onPress={() => createMutation.mutate()} disabled={!date || !name} loading={createMutation.isPending} />
       </Card>

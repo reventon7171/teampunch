@@ -26,6 +26,7 @@ model Organization {
   commissions        Commission[]
   dutyAssignments    DutyAssignment[]
   dutyTaskOptions    DutyTaskOption[]
+  dutyScheduleRules  DutyScheduleRule[]
   dayOffSwaps        DayOffSwapRequest[]
   workplaceLocation  WorkplaceLocation?
 }
@@ -61,12 +62,13 @@ model Employee {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  attendance      Attendance[]
-  leaves          Leave[]
-  advances        Advance[]
-  commissions     Commission[]
-  dutyAssignments DutyAssignment[]
-  dayOffSwaps     DayOffSwapRequest[]
+  attendance        Attendance[]
+  leaves            Leave[]
+  advances          Advance[]
+  commissions       Commission[]
+  dutyAssignments   DutyAssignment[]
+  dutyScheduleRules DutyScheduleRule[]
+  dayOffSwaps       DayOffSwapRequest[]
 
   @@unique([organizationId, username])
   @@index([organizationId, active])
@@ -202,9 +204,28 @@ model DutyTaskOption {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  assignments DutyAssignment[]
+  assignments   DutyAssignment[]
+  scheduleRules DutyScheduleRule[]
 
   @@unique([organizationId, label])
+}
+
+// Admin-set recurring rule: "every Monday, employee X gets task Y" — checked at check-in
+// BEFORE falling back to the random pool, so an employee can be fully random, fully fixed
+// (a rule for every weekday they work), or a mix (rules for some weekdays, random on others).
+model DutyScheduleRule {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  weekday        Int // 0 (Sun) - 6 (Sat)
+  taskId         String
+  taskOption     DutyTaskOption @relation(fields: [taskId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([employeeId, weekday])
 }
 
 // Daily cleaning-duty rotation, assigned at check-in time to any employee with

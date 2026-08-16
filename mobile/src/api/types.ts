@@ -46,6 +46,14 @@ export interface DutyTaskOption {
   createdAt: string;
 }
 
+export interface DutyScheduleRule {
+  id: string;
+  employeeId: string;
+  weekday: number;
+  taskId: string;
+  label: string;
+}
+
 export interface CheckInResult extends AttendanceRecord {
   duty: DutyAssignment | null;
 }

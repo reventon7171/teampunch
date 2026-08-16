@@ -134,25 +134,34 @@ router.post(
       },
     });
 
-    // assign today's cleaning duty for opted-in employees — random, but only once per employee
-    // per day (upsert is a no-op if one was already assigned, e.g. a retried request)
+    // assign today's cleaning duty, only once per employee per day (a retried request just
+    // returns the same one already assigned). Priority: an admin's one-off date override
+    // (already in DutyAssignment) > the admin's weekly schedule rule for this weekday >
+    // random from the active pool (only if dutyRotationEnabled). Any of the first two apply
+    // even when dutyRotationEnabled is off — a specific/scheduled assignment isn't "random".
     let duty = null;
-    if (emp.dutyRotationEnabled) {
-      const existingDuty = await prisma.dutyAssignment.findUnique({
-        where: { employeeId_date: { employeeId: emp.id, date } },
-        include: { taskOption: true },
+    const existingDuty = await prisma.dutyAssignment.findUnique({
+      where: { employeeId_date: { employeeId: emp.id, date } },
+      include: { taskOption: true },
+    });
+    if (existingDuty) {
+      duty = serializeDutyAssignment(existingDuty);
+    } else {
+      const weekday = new Date(date + "T00:00:00").getDay();
+      const rule = await prisma.dutyScheduleRule.findUnique({
+        where: { employeeId_weekday: { employeeId: emp.id, weekday } },
       });
-      if (existingDuty) {
-        duty = serializeDutyAssignment(existingDuty);
-      } else {
+      let taskId = rule?.taskId ?? null;
+      if (!taskId && emp.dutyRotationEnabled) {
         const option = await pickRandomDutyOption(prisma, organizationId);
-        if (option) {
-          const dutyRecord = await prisma.dutyAssignment.create({
-            data: { organizationId, employeeId: emp.id, date, taskId: option.id },
-            include: { taskOption: true },
-          });
-          duty = serializeDutyAssignment(dutyRecord);
-        }
+        taskId = option?.id ?? null;
+      }
+      if (taskId) {
+        const dutyRecord = await prisma.dutyAssignment.create({
+          data: { organizationId, employeeId: emp.id, date, taskId },
+          include: { taskOption: true },
+        });
+        duty = serializeDutyAssignment(dutyRecord);
       }
     }
 
