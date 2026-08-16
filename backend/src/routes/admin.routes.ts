@@ -21,7 +21,12 @@ router.get(
   "/me",
   asyncHandler(async (req, res) => {
     const admin = await prisma.admin.findUnique({ where: { id: req.user!.id } });
-    res.json({ id: admin?.id, username: admin?.username });
+    const org = await prisma.organization.findUnique({ where: { id: req.user!.organizationId } });
+    res.json({
+      id: admin?.id,
+      username: admin?.username,
+      organization: org ? { id: org.id, name: org.name, slug: org.slug } : null,
+    });
   })
 );
 
@@ -42,7 +47,7 @@ router.patch(
 router.get(
   "/location",
   asyncHandler(async (req, res) => {
-    const loc = await prisma.workplaceLocation.findUnique({ where: { id: "default" } });
+    const loc = await prisma.workplaceLocation.findUnique({ where: { organizationId: req.user!.organizationId } });
     res.json(
       loc
         ? { lat: Number(loc.lat), lng: Number(loc.lng), radiusMeters: loc.radiusMeters, enabled: loc.enabled }
@@ -55,9 +60,10 @@ router.put(
   "/location",
   asyncHandler(async (req, res) => {
     const { lat, lng, radiusMeters, enabled } = workplaceLocationSchema.parse(req.body);
+    const organizationId = req.user!.organizationId;
     const loc = await prisma.workplaceLocation.upsert({
-      where: { id: "default" },
-      create: { id: "default", lat, lng, radiusMeters, enabled },
+      where: { organizationId },
+      create: { organizationId, lat, lng, radiusMeters, enabled },
       update: { lat, lng, radiusMeters, enabled },
     });
     res.json({ lat: Number(loc.lat), lng: Number(loc.lng), radiusMeters: loc.radiusMeters, enabled: loc.enabled });

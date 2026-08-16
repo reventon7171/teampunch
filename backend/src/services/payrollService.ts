@@ -14,7 +14,7 @@ export const getPayrollForEmployee = async (
 
   const [attendance, holidays, leaves, advance, commission, swaps] = await Promise.all([
     prisma.attendance.findMany({ where: { employeeId: emp.id, date: { startsWith: info.ym } } }),
-    prisma.holiday.findMany({ where: { date: { startsWith: info.ym } } }),
+    prisma.holiday.findMany({ where: { organizationId: emp.organizationId, date: { startsWith: info.ym } } }),
     prisma.leave.findMany({ where: { employeeId: emp.id, status: "APPROVED", date: { startsWith: info.ym } } }),
     prisma.advance.findUnique({ where: { employeeId_periodKey: { employeeId: emp.id, periodKey } } }),
     prisma.commission.findUnique({ where: { employeeId_yearMonth: { employeeId: emp.id, yearMonth: info.ym } } }),

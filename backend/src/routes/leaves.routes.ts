@@ -20,6 +20,7 @@ router.post(
     const input = createLeaveSchema.parse(req.body);
     const leave = await prisma.leave.create({
       data: {
+        organizationId: req.user!.organizationId,
         employeeId: req.user!.id,
         date: input.date,
         type: input.type,
@@ -47,7 +48,7 @@ router.get(
   requireRole("employee"),
   asyncHandler(async (req, res) => {
     const leaves = await prisma.leave.findMany({
-      where: { employeeId: req.user!.id },
+      where: { employeeId: req.user!.id, organizationId: req.user!.organizationId },
       orderBy: { date: "desc" },
     });
     res.json(leaves.map(serializeLeave));
@@ -60,7 +61,11 @@ router.get(
   asyncHandler(async (req, res) => {
     const { employeeId, status } = leaveQuerySchema.parse(req.query);
     const leaves = await prisma.leave.findMany({
-      where: { employeeId: employeeId ?? undefined, status: status ?? undefined },
+      where: {
+        organizationId: req.user!.organizationId,
+        employeeId: employeeId ?? undefined,
+        status: status ?? undefined,
+      },
       orderBy: { date: "desc" },
     });
     res.json(leaves.map(serializeLeave));
@@ -72,7 +77,9 @@ router.patch(
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const { status } = leaveStatusSchema.parse(req.body);
-    const leave = await prisma.leave.findUnique({ where: { id: req.params.id } });
+    const leave = await prisma.leave.findFirst({
+      where: { id: req.params.id, organizationId: req.user!.organizationId },
+    });
     if (!leave) throw notFound("คำขอลา");
     const updated = await prisma.leave.update({ where: { id: leave.id }, data: { status } });
     res.json(serializeLeave(updated));
@@ -83,7 +90,9 @@ router.delete(
   "/:id",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
-    const leave = await prisma.leave.findUnique({ where: { id: req.params.id } });
+    const leave = await prisma.leave.findFirst({
+      where: { id: req.params.id, organizationId: req.user!.organizationId },
+    });
     if (!leave) throw notFound("คำขอลา");
     await prisma.leave.delete({ where: { id: leave.id } });
     res.status(204).send();
@@ -93,7 +102,9 @@ router.delete(
 router.get(
   "/:id/photo",
   asyncHandler(async (req, res) => {
-    const leave = await prisma.leave.findUnique({ where: { id: req.params.id } });
+    const leave = await prisma.leave.findFirst({
+      where: { id: req.params.id, organizationId: req.user!.organizationId },
+    });
     if (!leave) throw notFound("คำขอลา");
     if (req.user!.role !== "admin" && req.user!.id !== leave.employeeId) throw forbidden();
     if (!leave.photoPath) throw notFound("รูปเอกสาร");

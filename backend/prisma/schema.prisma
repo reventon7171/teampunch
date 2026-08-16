@@ -7,16 +7,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// One row per business that signs up (a "tenant"). slug is the short code a business's
+// admins/employees type at login (e.g. "somchai-cafe") since usernames are only unique
+// within an organization, not globally, across a public multi-tenant install.
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  admins             Admin[]
+  employees          Employee[]
+  attendance         Attendance[]
+  leaves             Leave[]
+  holidays           Holiday[]
+  advances           Advance[]
+  commissions        Commission[]
+  dutyAssignments    DutyAssignment[]
+  dutyTaskOptions    DutyTaskOption[]
+  dayOffSwaps        DayOffSwapRequest[]
+  workplaceLocation  WorkplaceLocation?
+}
+
 model Admin {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  username       String
+  passwordHash   String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, username])
 }
 
 model Employee {
   id           String   @id @default(uuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name         String
   position     String?
   baseSalary   Decimal  @db.Decimal(12, 2)
@@ -25,7 +54,7 @@ model Employee {
   daysOff      Int[] // weekday numbers 0 (Sun) - 6 (Sat)
   hireDate     String? // "YYYY-MM-DD" — nullable only for rows created before this field existed;
   // required going forward at the application layer (createEmployeeSchema)
-  username     String   @unique
+  username     String
   passwordHash String
   active       Boolean  @default(true)
   dutyRotationEnabled Boolean @default(false) // opts this employee into the random daily cleaning-duty rotation at check-in (previously hardcoded to position === "เสิร์ฟ")
@@ -40,11 +69,14 @@ model Employee {
   dutyAssignments DutyAssignment[]
   dayOffSwaps     DayOffSwapRequest[]
 
-  @@index([active])
+  @@unique([organizationId, username])
+  @@index([organizationId, active])
 }
 
 model Attendance {
   id      String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -68,7 +100,7 @@ model Attendance {
   updatedAt DateTime @updatedAt
 
   @@unique([employeeId, date])
-  @@index([date])
+  @@index([organizationId, date])
 }
 
 enum LeaveType {
@@ -85,6 +117,8 @@ enum LeaveStatus {
 
 model Leave {
   id         String      @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employeeId String
   employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   date       String // "YYYY-MM-DD"
@@ -96,7 +130,7 @@ model Leave {
   updatedAt  DateTime    @updatedAt
 
   @@index([employeeId, date])
-  @@index([status])
+  @@index([organizationId, status])
 }
 
 // Employee-requested swap of their weekly day off, for one specific week only — e.g. work
@@ -105,6 +139,8 @@ model Leave {
 // (payroll.ts isDayOff() reads this; the employee's recurring Employee.daysOff is untouched).
 model DayOffSwapRequest {
   id             String      @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employeeId     String
   employee       Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   originalOffDate String // "YYYY-MM-DD"
@@ -115,20 +151,24 @@ model DayOffSwapRequest {
   updatedAt      DateTime    @updatedAt
 
   @@index([employeeId])
-  @@index([status])
+  @@index([organizationId, status])
 }
 
 model Holiday {
   id        String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   date      String // "YYYY-MM-DD"
   name      String
   createdAt DateTime @default(now())
 
-  @@unique([date])
+  @@unique([organizationId, date])
 }
 
 model Advance {
   id         String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   periodKey  String // "YYYY-MM-H1" | "YYYY-MM-H2"
@@ -141,6 +181,8 @@ model Advance {
 
 model Commission {
   id         String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   yearMonth  String // "YYYY-MM"
@@ -155,11 +197,15 @@ model Commission {
 // Deactivating (not deleting) keeps history intact for duties already assigned.
 model DutyTaskOption {
   id        String   @id @default(uuid())
-  label     String   @unique
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  label     String
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
   assignments DutyAssignment[]
+
+  @@unique([organizationId, label])
 }
 
 // Daily cleaning-duty rotation, assigned at check-in time to any employee with
@@ -168,6 +214,8 @@ model DutyTaskOption {
 // so admins have a permanent record of who was responsible for what on any given date.
 model DutyAssignment {
   id         String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   date       String // "YYYY-MM-DD"
@@ -176,17 +224,19 @@ model DutyAssignment {
   createdAt  DateTime @default(now())
 
   @@unique([employeeId, date])
-  @@index([date])
+  @@index([organizationId, date])
 }
 
-// Singleton row (fixed id "default") — the workplace's GPS coordinate + allowed check-in radius.
+// One row per organization — the workplace's GPS coordinate + allowed check-in radius.
 // When enabled=false or the row doesn't exist yet, check-in/check-out skip the location check
 // entirely (unconfigured on a fresh install rather than silently blocking everyone).
 model WorkplaceLocation {
-  id           String   @id @default("default")
-  lat          Decimal  @db.Decimal(9, 6)
-  lng          Decimal  @db.Decimal(9, 6)
-  radiusMeters Int      @default(150)
-  enabled      Boolean  @default(true)
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(uuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lat            Decimal  @db.Decimal(9, 6)
+  lng            Decimal  @db.Decimal(9, 6)
+  radiusMeters   Int      @default(150)
+  enabled        Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
 }

@@ -25,7 +25,9 @@ router.post(
       throw badRequest("ไม่สามารถขอสลับวันหยุดที่ผ่านไปแล้วได้");
     }
 
-    const emp = await prisma.employee.findUnique({ where: { id: req.user!.id } });
+    const emp = await prisma.employee.findFirst({
+      where: { id: req.user!.id, organizationId: req.user!.organizationId },
+    });
     if (!emp || !emp.active) throw notFound("พนักงาน");
 
     if (!isWeeklyDayOff(emp, input.originalOffDate)) {
@@ -42,6 +44,7 @@ router.post(
 
     const swap = await prisma.dayOffSwapRequest.create({
       data: {
+        organizationId: emp.organizationId,
         employeeId: emp.id,
         originalOffDate: input.originalOffDate,
         swappedToDate: input.swappedToDate,
@@ -58,7 +61,7 @@ router.get(
   requireRole("employee"),
   asyncHandler(async (req, res) => {
     const swaps = await prisma.dayOffSwapRequest.findMany({
-      where: { employeeId: req.user!.id },
+      where: { employeeId: req.user!.id, organizationId: req.user!.organizationId },
       orderBy: { originalOffDate: "desc" },
     });
     res.json(swaps.map(serializeDayOffSwap));
@@ -71,7 +74,11 @@ router.get(
   asyncHandler(async (req, res) => {
     const { employeeId, status } = dayOffSwapQuerySchema.parse(req.query);
     const swaps = await prisma.dayOffSwapRequest.findMany({
-      where: { employeeId: employeeId ?? undefined, status: status ?? undefined },
+      where: {
+        organizationId: req.user!.organizationId,
+        employeeId: employeeId ?? undefined,
+        status: status ?? undefined,
+      },
       orderBy: { originalOffDate: "desc" },
     });
     res.json(swaps.map(serializeDayOffSwap));
@@ -83,7 +90,9 @@ router.patch(
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const { status } = dayOffSwapStatusSchema.parse(req.body);
-    const swap = await prisma.dayOffSwapRequest.findUnique({ where: { id: req.params.id } });
+    const swap = await prisma.dayOffSwapRequest.findFirst({
+      where: { id: req.params.id, organizationId: req.user!.organizationId },
+    });
     if (!swap) throw notFound("คำขอสลับวันหยุด");
     const updated = await prisma.dayOffSwapRequest.update({ where: { id: swap.id }, data: { status } });
     res.json(serializeDayOffSwap(updated));
@@ -94,7 +103,9 @@ router.delete(
   "/:id",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
-    const swap = await prisma.dayOffSwapRequest.findUnique({ where: { id: req.params.id } });
+    const swap = await prisma.dayOffSwapRequest.findFirst({
+      where: { id: req.params.id, organizationId: req.user!.organizationId },
+    });
     if (!swap) throw notFound("คำขอสลับวันหยุด");
     await prisma.dayOffSwapRequest.delete({ where: { id: swap.id } });
     res.status(204).send();

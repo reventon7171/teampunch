@@ -1,21 +1,33 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { slugify } from "../src/lib/slug";
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 12;
 
 async function main() {
+  const orgName = process.env.SEED_ORG_NAME || "ร้านตัวอย่าง";
+  const orgSlug = process.env.SEED_ORG_SLUG || slugify(orgName) || "demo";
   const adminUsername = process.env.SEED_ADMIN_USERNAME || "admin";
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || "admin1234";
 
-  const adminPasswordHash = await bcrypt.hash(adminPassword, SALT_ROUNDS);
-  await prisma.admin.upsert({
-    where: { username: adminUsername },
-    create: { username: adminUsername, passwordHash: adminPasswordHash },
+  const org = await prisma.organization.upsert({
+    where: { slug: orgSlug },
+    create: { name: orgName, slug: orgSlug },
     update: {},
   });
-  console.log(`Admin account ready: ${adminUsername} / ${adminPassword} (โปรดเปลี่ยนรหัสผ่านหลัง login ครั้งแรก)`);
+  console.log(`Organization ready: ${org.name} (slug: ${org.slug})`);
+
+  const adminPasswordHash = await bcrypt.hash(adminPassword, SALT_ROUNDS);
+  await prisma.admin.upsert({
+    where: { organizationId_username: { organizationId: org.id, username: adminUsername } },
+    create: { organizationId: org.id, username: adminUsername, passwordHash: adminPasswordHash },
+    update: {},
+  });
+  console.log(
+    `Admin account ready: slug="${org.slug}" username="${adminUsername}" password="${adminPassword}" (โปรดเปลี่ยนรหัสผ่านหลัง login ครั้งแรก)`
+  );
 
   const toDateStr = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -69,7 +81,9 @@ async function main() {
   ];
 
   for (const e of sampleEmployees) {
-    const existing = await prisma.employee.findUnique({ where: { username: e.username } });
+    const existing = await prisma.employee.findUnique({
+      where: { organizationId_username: { organizationId: org.id, username: e.username } },
+    });
     if (existing) {
       if (!existing.hireDate) {
         await prisma.employee.update({ where: { id: existing.id }, data: { hireDate: e.hireDate } });
@@ -79,6 +93,7 @@ async function main() {
     const passwordHash = await bcrypt.hash(e.password, SALT_ROUNDS);
     await prisma.employee.create({
       data: {
+        organizationId: org.id,
         name: e.name,
         position: e.position,
         baseSalary: e.baseSalary,
@@ -96,8 +111,8 @@ async function main() {
   const today = new Date();
   const sampleHolidayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-15`;
   await prisma.holiday.upsert({
-    where: { date: sampleHolidayDate },
-    create: { date: sampleHolidayDate, name: "วันหยุดพิเศษตัวอย่าง" },
+    where: { organizationId_date: { organizationId: org.id, date: sampleHolidayDate } },
+    create: { organizationId: org.id, date: sampleHolidayDate, name: "วันหยุดพิเศษตัวอย่าง" },
     update: {},
   });
   console.log(`Seeded sample holiday on ${sampleHolidayDate}`);

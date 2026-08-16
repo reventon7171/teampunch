@@ -6,6 +6,7 @@ export type Role = "admin" | "employee";
 export interface TokenPayload {
   sub: string; // admin id or employee id
   role: Role;
+  orgId: string;
 }
 
 export const signToken = (payload: TokenPayload): string =>

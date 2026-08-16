@@ -26,9 +26,9 @@ import {
 const router = Router();
 router.use(requireAuth);
 
-// resolves the current employee row for the authenticated employee
-const getSelfEmployee = async (employeeId: string) => {
-  const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
+// resolves the current employee row for the authenticated employee, scoped to their org
+const getSelfEmployee = async (employeeId: string, organizationId: string) => {
+  const emp = await prisma.employee.findFirst({ where: { id: employeeId, organizationId } });
   if (!emp || !emp.active) throw notFound("พนักงาน");
   return emp;
 };
@@ -55,8 +55,8 @@ const getActiveAttendanceRecord = async (employeeId: string, today: string) => {
 
 // server-side geofence — the source of truth, since client-side location can be spoofed.
 // no-op if the admin hasn't configured a workplace location yet (or turned it off).
-const assertWithinWorkplaceRadius = async (lat: number, lng: number) => {
-  const loc = await prisma.workplaceLocation.findUnique({ where: { id: "default" } });
+const assertWithinWorkplaceRadius = async (lat: number, lng: number, organizationId: string) => {
+  const loc = await prisma.workplaceLocation.findUnique({ where: { organizationId } });
   if (!loc || !loc.enabled) return;
   const dist = distanceMeters(lat, lng, Number(loc.lat), Number(loc.lng));
   if (dist > loc.radiusMeters) {
@@ -73,16 +73,17 @@ router.post(
   asyncHandler(async (req, res) => {
     const { lat, lng } = punchSchema.parse(req.body);
     if (!req.file) throw badRequest("กรุณาถ่ายรูปยืนยันตัวตน");
-    await assertWithinWorkplaceRadius(lat, lng);
+    const organizationId = req.user!.organizationId;
+    await assertWithinWorkplaceRadius(lat, lng, organizationId);
 
-    const emp = await getSelfEmployee(req.user!.id);
+    const emp = await getSelfEmployee(req.user!.id, organizationId);
     const date = todayStrBangkok();
     const swaps = await getApprovedSwaps(emp.id);
 
     if (isDayOff(emp, emp.id, date, swaps)) {
       throw conflict(`วันนี้เป็นวันหยุดประจำสัปดาห์ (${weekdayLabel(new Date(date + "T00:00:00").getDay())}) ของคุณ`);
     }
-    const holiday = await prisma.holiday.findUnique({ where: { date } });
+    const holiday = await prisma.holiday.findUnique({ where: { organizationId_date: { organizationId, date } } });
     if (holiday) throw conflict(`วันนี้เป็นวันหยุดพิเศษ: ${holiday.name}`);
 
     const leaves = await prisma.leave.findMany({ where: { employeeId: emp.id, date, status: "APPROVED" } });
@@ -109,6 +110,7 @@ router.post(
     const record = await prisma.attendance.upsert({
       where: { employeeId_date: { employeeId: emp.id, date } },
       create: {
+        organizationId,
         employeeId: emp.id,
         date,
         checkInTime: time,
@@ -141,10 +143,10 @@ router.post(
       if (existingDuty) {
         duty = serializeDutyAssignment(existingDuty);
       } else {
-        const option = await pickRandomDutyOption(prisma);
+        const option = await pickRandomDutyOption(prisma, organizationId);
         if (option) {
           const dutyRecord = await prisma.dutyAssignment.create({
-            data: { employeeId: emp.id, date, taskId: option.id },
+            data: { organizationId, employeeId: emp.id, date, taskId: option.id },
             include: { taskOption: true },
           });
           duty = serializeDutyAssignment(dutyRecord);
@@ -171,9 +173,10 @@ router.post(
   asyncHandler(async (req, res) => {
     const { lat, lng } = punchSchema.parse(req.body);
     if (!req.file) throw badRequest("กรุณาถ่ายรูปยืนยันตัวตน");
-    await assertWithinWorkplaceRadius(lat, lng);
+    const organizationId = req.user!.organizationId;
+    await assertWithinWorkplaceRadius(lat, lng, organizationId);
 
-    const emp = await getSelfEmployee(req.user!.id);
+    const emp = await getSelfEmployee(req.user!.id, organizationId);
     const today = todayStrBangkok();
     const time = nowHHMMBangkok();
 
@@ -205,12 +208,13 @@ router.get(
   "/today",
   requireRole("employee"),
   asyncHandler(async (req, res) => {
-    const emp = await getSelfEmployee(req.user!.id);
+    const organizationId = req.user!.organizationId;
+    const emp = await getSelfEmployee(req.user!.id, organizationId);
     const date = todayStrBangkok();
 
     const [{ record, date: recordDate }, holiday, leaves, swaps] = await Promise.all([
       getActiveAttendanceRecord(emp.id, date),
-      prisma.holiday.findUnique({ where: { date } }),
+      prisma.holiday.findUnique({ where: { organizationId_date: { organizationId, date } } }),
       prisma.leave.findMany({ where: { employeeId: emp.id, date, status: "APPROVED" } }),
       getApprovedSwaps(emp.id),
     ]);
@@ -250,6 +254,7 @@ router.get(
     const records = await prisma.attendance.findMany({
       where: {
         employeeId: req.user!.id,
+        organizationId: req.user!.organizationId,
         date: { gte: from ?? undefined, lte: to ?? undefined },
       },
       orderBy: { date: "desc" },
@@ -265,6 +270,7 @@ router.get(
     const { employeeId, from, to } = attendanceQuerySchema.parse(req.query);
     const records = await prisma.attendance.findMany({
       where: {
+        organizationId: req.user!.organizationId,
         employeeId: employeeId ?? undefined,
         date: { gte: from ?? undefined, lte: to ?? undefined },
       },
@@ -280,7 +286,7 @@ router.get(
     const { id, kind } = req.params;
     if (kind !== "in" && kind !== "out") throw badRequest("ประเภทรูปไม่ถูกต้อง");
 
-    const record = await prisma.attendance.findUnique({ where: { id } });
+    const record = await prisma.attendance.findFirst({ where: { id, organizationId: req.user!.organizationId } });
     if (!record) throw notFound("บันทึกการตอกบัตร");
     if (req.user!.role !== "admin" && req.user!.id !== record.employeeId) throw forbidden();
 

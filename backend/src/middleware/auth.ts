@@ -9,7 +9,7 @@ export const requireAuth = (req: Request, _res: Response, next: NextFunction) =>
   if (!header?.startsWith("Bearer ")) return next(unauthorized());
   try {
     const payload = verifyToken(header.slice("Bearer ".length));
-    req.user = { id: payload.sub, role: payload.role };
+    req.user = { id: payload.sub, role: payload.role, organizationId: payload.orgId };
     next();
   } catch {
     next(unauthorized("โทเค็นไม่ถูกต้องหรือหมดอายุ"));

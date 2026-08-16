@@ -18,7 +18,9 @@ router.get(
   asyncHandler(async (req, res) => {
     const { period } = periodQuerySchema.parse(req.query);
     const periodKey = period ?? periodKeyFromDate(todayStrBangkok());
-    const emp = await prisma.employee.findUnique({ where: { id: req.user!.id } });
+    const emp = await prisma.employee.findFirst({
+      where: { id: req.user!.id, organizationId: req.user!.organizationId },
+    });
     if (!emp) throw notFound("พนักงาน");
     const breakdown = await getPayrollForEmployee(emp, periodKey);
     res.json(breakdown);
@@ -31,7 +33,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const { period } = periodQuerySchema.parse(req.query);
     const periodKey = period ?? periodKeyFromDate(todayStrBangkok());
-    const employees = await prisma.employee.findMany({ orderBy: { createdAt: "asc" } });
+    const employees = await prisma.employee.findMany({
+      where: { organizationId: req.user!.organizationId },
+      orderBy: { createdAt: "asc" },
+    });
     const rows = await Promise.all(
       employees.map(async (emp) => ({
         employeeId: emp.id,
@@ -49,9 +54,12 @@ router.put(
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const input = setAdvanceSchema.parse(req.body);
+    const organizationId = req.user!.organizationId;
+    const employee = await prisma.employee.findFirst({ where: { id: input.employeeId, organizationId } });
+    if (!employee) throw notFound("พนักงาน");
     const advance = await prisma.advance.upsert({
       where: { employeeId_periodKey: { employeeId: input.employeeId, periodKey: input.periodKey } },
-      create: { employeeId: input.employeeId, periodKey: input.periodKey, amount: input.amount, note: input.note },
+      create: { organizationId, employeeId: input.employeeId, periodKey: input.periodKey, amount: input.amount, note: input.note },
       update: { amount: input.amount, note: input.note },
     });
     res.json(serializeAdvance(advance));
@@ -63,9 +71,12 @@ router.put(
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const input = setCommissionSchema.parse(req.body);
+    const organizationId = req.user!.organizationId;
+    const employee = await prisma.employee.findFirst({ where: { id: input.employeeId, organizationId } });
+    if (!employee) throw notFound("พนักงาน");
     const commission = await prisma.commission.upsert({
       where: { employeeId_yearMonth: { employeeId: input.employeeId, yearMonth: input.yearMonth } },
-      create: { employeeId: input.employeeId, yearMonth: input.yearMonth, amount: input.amount },
+      create: { organizationId, employeeId: input.employeeId, yearMonth: input.yearMonth, amount: input.amount },
       update: { amount: input.amount },
     });
     res.json(serializeCommission(commission));

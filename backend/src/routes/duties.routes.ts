@@ -17,6 +17,7 @@ router.get(
     const { employeeId, from, to } = dutyQuerySchema.parse(req.query);
     const assignments = await prisma.dutyAssignment.findMany({
       where: {
+        organizationId: req.user!.organizationId,
         employeeId: employeeId ?? undefined,
         date: { gte: from ?? undefined, lte: to ?? undefined },
       },
@@ -31,8 +32,11 @@ router.get(
 // check-in to any employee with dutyRotationEnabled=true
 router.get(
   "/tasks",
-  asyncHandler(async (_req, res) => {
-    const tasks = await prisma.dutyTaskOption.findMany({ orderBy: { createdAt: "asc" } });
+  asyncHandler(async (req, res) => {
+    const tasks = await prisma.dutyTaskOption.findMany({
+      where: { organizationId: req.user!.organizationId },
+      orderBy: { createdAt: "asc" },
+    });
     res.json(tasks.map(serializeDutyTaskOption));
   })
 );
@@ -41,9 +45,12 @@ router.post(
   "/tasks",
   asyncHandler(async (req, res) => {
     const { label } = createDutyTaskOptionSchema.parse(req.body);
-    const existing = await prisma.dutyTaskOption.findUnique({ where: { label } });
+    const organizationId = req.user!.organizationId;
+    const existing = await prisma.dutyTaskOption.findUnique({
+      where: { organizationId_label: { organizationId, label } },
+    });
     if (existing) throw conflict("มีหน้าที่นี้อยู่แล้ว");
-    const task = await prisma.dutyTaskOption.create({ data: { label } });
+    const task = await prisma.dutyTaskOption.create({ data: { label, organizationId } });
     res.status(201).json(serializeDutyTaskOption(task));
   })
 );
@@ -54,9 +61,11 @@ router.patch(
   "/tasks/:id",
   asyncHandler(async (req, res) => {
     const { active } = updateDutyTaskOptionSchema.parse(req.body);
-    const existing = await prisma.dutyTaskOption.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.dutyTaskOption.findFirst({
+      where: { id: req.params.id, organizationId: req.user!.organizationId },
+    });
     if (!existing) throw notFound("หน้าที่");
-    const task = await prisma.dutyTaskOption.update({ where: { id: req.params.id }, data: { active } });
+    const task = await prisma.dutyTaskOption.update({ where: { id: existing.id }, data: { active } });
     res.json(serializeDutyTaskOption(task));
   })
 );
