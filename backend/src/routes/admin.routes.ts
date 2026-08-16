@@ -1,0 +1,67 @@
+import { Router } from "express";
+import { z } from "zod";
+import { prisma } from "../lib/prisma";
+import { asyncHandler } from "../lib/asyncHandler";
+import { requireAuth, requireRole } from "../middleware/auth";
+import { changePasswordSchema } from "../validators/auth.validators";
+import { hashPassword, verifyPassword } from "../lib/password";
+import { unauthorized } from "../lib/errors";
+
+const router = Router();
+router.use(requireAuth, requireRole("admin"));
+
+const workplaceLocationSchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+  radiusMeters: z.coerce.number().int().min(10).max(5000),
+  enabled: z.boolean(),
+});
+
+router.get(
+  "/me",
+  asyncHandler(async (req, res) => {
+    const admin = await prisma.admin.findUnique({ where: { id: req.user!.id } });
+    res.json({ id: admin?.id, username: admin?.username });
+  })
+);
+
+router.patch(
+  "/password",
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+    const admin = await prisma.admin.findUnique({ where: { id: req.user!.id } });
+    if (!admin || !(await verifyPassword(currentPassword, admin.passwordHash))) {
+      throw unauthorized("รหัสผ่านเดิมไม่ถูกต้อง");
+    }
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.admin.update({ where: { id: admin.id }, data: { passwordHash } });
+    res.json({ ok: true });
+  })
+);
+
+router.get(
+  "/location",
+  asyncHandler(async (req, res) => {
+    const loc = await prisma.workplaceLocation.findUnique({ where: { id: "default" } });
+    res.json(
+      loc
+        ? { lat: Number(loc.lat), lng: Number(loc.lng), radiusMeters: loc.radiusMeters, enabled: loc.enabled }
+        : null
+    );
+  })
+);
+
+router.put(
+  "/location",
+  asyncHandler(async (req, res) => {
+    const { lat, lng, radiusMeters, enabled } = workplaceLocationSchema.parse(req.body);
+    const loc = await prisma.workplaceLocation.upsert({
+      where: { id: "default" },
+      create: { id: "default", lat, lng, radiusMeters, enabled },
+      update: { lat, lng, radiusMeters, enabled },
+    });
+    res.json({ lat: Number(loc.lat), lng: Number(loc.lng), radiusMeters: loc.radiusMeters, enabled: loc.enabled });
+  })
+);
+
+export default router;

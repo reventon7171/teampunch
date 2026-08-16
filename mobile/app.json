@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "บขส. บาร์",
+    "slug": "punch-card-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bxsbar.punchcard",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "แอปนี้ต้องใช้ตำแหน่ง GPS เพื่อยืนยันสถานที่ตอนเช็คอิน",
+        "NSCameraUsageDescription": "แอปนี้ต้องใช้กล้องเพื่อถ่ายรูปยืนยันตัวตนตอนเช็คอิน และแนบเอกสารประกอบการลา",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.bxsbar.punchcard",
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#F15002"
+      }
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "แอปนี้ต้องใช้ตำแหน่ง GPS เพื่อยืนยันสถานที่ตอนเช็คอิน/เช็คเอาท์"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "แอปนี้ต้องใช้กล้องเพื่อถ่ายรูปยืนยันตัวตนตอนเช็คอิน/เช็คเอาท์ และแนบเอกสารประกอบการลา"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F15002"
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ef06a54c-b3e7-4a10-9ace-512fe609794f"
+      }
+    },
+    "owner": "bks-bar"
+  }
+}

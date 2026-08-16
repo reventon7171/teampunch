@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Employee {
+  id           String   @id @default(uuid())
+  name         String
+  position     String?
+  baseSalary   Decimal  @db.Decimal(12, 2)
+  workStart    String // "HH:MM" 24h
+  workEnd      String // "HH:MM" 24h, may be <= workStart for overnight shifts
+  daysOff      Int[] // weekday numbers 0 (Sun) - 6 (Sat)
+  hireDate     String? // "YYYY-MM-DD" — nullable only for rows created before this field existed;
+  // required going forward at the application layer (createEmployeeSchema)
+  username     String   @unique
+  passwordHash String
+  active       Boolean  @default(true)
+  dutyRotationEnabled Boolean @default(false) // opts this employee into the random daily cleaning-duty rotation at check-in (previously hardcoded to position === "เสิร์ฟ")
+  driveFolderId String? // Google Drive folder id for this employee's synced photos — created lazily on first upload
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendance      Attendance[]
+  leaves          Leave[]
+  advances        Advance[]
+  commissions     Commission[]
+  dutyAssignments DutyAssignment[]
+  dayOffSwaps     DayOffSwapRequest[]
+
+  @@index([active])
+}
+
+model Attendance {
+  id      String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date String // "YYYY-MM-DD", local calendar date of the shift's check-in
+
+  checkInTime      String? // "HH:MM"
+  checkInLat       Decimal? @db.Decimal(9, 6)
+  checkInLng       Decimal? @db.Decimal(9, 6)
+  checkInPhotoPath String?
+
+  checkOutTime      String? // "HH:MM"
+  checkOutLat       Decimal? @db.Decimal(9, 6)
+  checkOutLng       Decimal? @db.Decimal(9, 6)
+  checkOutPhotoPath String?
+
+  lateMinutes     Int     @default(0)
+  deductionHours  Int     @default(0)
+  deductionAmount Decimal @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([date])
+}
+
+enum LeaveType {
+  SICK
+  PERSONAL
+  VACATION
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Leave {
+  id         String      @id @default(uuid())
+  employeeId String
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       String // "YYYY-MM-DD"
+  type       LeaveType
+  reason     String?
+  photoPath  String?
+  status     LeaveStatus @default(PENDING)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([employeeId, date])
+  @@index([status])
+}
+
+// Employee-requested swap of their weekly day off, for one specific week only — e.g. work
+// this Monday (their normal day off) instead and take Wednesday off. Once APPROVED,
+// originalOffDate becomes a normal working day and swappedToDate becomes the day off
+// (payroll.ts isDayOff() reads this; the employee's recurring Employee.daysOff is untouched).
+model DayOffSwapRequest {
+  id             String      @id @default(uuid())
+  employeeId     String
+  employee       Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  originalOffDate String // "YYYY-MM-DD"
+  swappedToDate  String // "YYYY-MM-DD"
+  reason         String?
+  status         LeaveStatus @default(PENDING)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+model Holiday {
+  id        String   @id @default(uuid())
+  date      String // "YYYY-MM-DD"
+  name      String
+  createdAt DateTime @default(now())
+
+  @@unique([date])
+}
+
+model Advance {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  periodKey  String // "YYYY-MM-H1" | "YYYY-MM-H2"
+  amount     Decimal  @default(0) @db.Decimal(12, 2)
+  note       String?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, periodKey])
+}
+
+model Commission {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  yearMonth  String // "YYYY-MM"
+  amount     Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, yearMonth])
+}
+
+// Admin-managed list of possible daily cleaning duties (used to used to be a fixed 3-value
+// enum — now editable from the app so admins can add more without a code change/deploy).
+// Deactivating (not deleting) keeps history intact for duties already assigned.
+model DutyTaskOption {
+  id        String   @id @default(uuid())
+  label     String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  assignments DutyAssignment[]
+}
+
+// Daily cleaning-duty rotation, assigned at check-in time to any employee with
+// dutyRotationEnabled=true (previously hardcoded to position === "เสิร์ฟ").
+// One assignment per employee per day (assigned once, randomly, and never reassigned that day)
+// so admins have a permanent record of who was responsible for what on any given date.
+model DutyAssignment {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       String // "YYYY-MM-DD"
+  taskId     String
+  taskOption DutyTaskOption @relation(fields: [taskId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([date])
+}
+
+// Singleton row (fixed id "default") — the workplace's GPS coordinate + allowed check-in radius.
+// When enabled=false or the row doesn't exist yet, check-in/check-out skip the location check
+// entirely (unconfigured on a fresh install rather than silently blocking everyone).
+model WorkplaceLocation {
+  id           String   @id @default("default")
+  lat          Decimal  @db.Decimal(9, 6)
+  lng          Decimal  @db.Decimal(9, 6)
+  radiusMeters Int      @default(150)
+  enabled      Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+}
