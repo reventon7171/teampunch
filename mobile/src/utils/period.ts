@@ -9,6 +9,10 @@ export interface PayrollConfig {
   monthlyPayDay: number;
   semiMonthlyPayDay1: number;
   semiMonthlyPayDay2: number;
+  // null = derive the late deduction from each employee's hourly rate (the original
+  // behavior). A number switches the whole org to a flat baht amount instead.
+  lateDeductionFirstHour: number | null;
+  lateDeductionPerExtraHour: number | null;
 }
 
 // bxs-bar's original hardcoded schedule (paid the 16th and the 1st) — used until the real
@@ -19,6 +23,8 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   monthlyPayDay: 1,
   semiMonthlyPayDay1: 16,
   semiMonthlyPayDay2: 1,
+  lateDeductionFirstHour: null,
+  lateDeductionPerExtraHour: null,
 };
 
 export interface PeriodInfo {

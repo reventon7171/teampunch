@@ -14,6 +14,7 @@ import {
   findApprovedLeave,
   computeLateMinutes,
   lateDeductionHours,
+  lateDeductionAmount,
   hourlyRate,
   weekdayLabel,
   isCheckInTooEarly,
@@ -103,7 +104,14 @@ router.post(
     const payrollEmp = toPayrollEmployee(emp);
     const lateMinutes = computeLateMinutes(emp.workStart, time);
     const deductionHours = lateDeductionHours(lateMinutes);
-    const deductionAmount = deductionHours * hourlyRate(payrollEmp);
+    const org = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { lateDeductionFirstHour: true, lateDeductionPerExtraHour: true },
+    });
+    const deductionAmount = lateDeductionAmount(deductionHours, hourlyRate(payrollEmp), {
+      firstHourAmount: org?.lateDeductionFirstHour != null ? Number(org.lateDeductionFirstHour) : null,
+      perExtraHourAmount: org?.lateDeductionPerExtraHour != null ? Number(org.lateDeductionPerExtraHour) : null,
+    });
 
     const photoKey = randomPhotoKey(`org/${organizationId}/emp/${emp.id}/checkin`, req.file.mimetype);
     await savePhoto(photoKey, req.file.buffer, req.file.mimetype);

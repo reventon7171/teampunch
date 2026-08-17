@@ -6,6 +6,7 @@ import {
   isCheckOutTooLate,
   shiftDateStr,
   lateDeductionHours,
+  lateDeductionAmount,
   leaveDeductionAmount,
   isWeeklyDayOff,
   isDayOff,
@@ -122,6 +123,30 @@ describe("lateDeductionHours", () => {
     [181, 4],
   ])("late %i minutes deducts %i hour(s)", (minutes, hours) => {
     expect(lateDeductionHours(minutes)).toBe(hours);
+  });
+});
+
+describe("lateDeductionAmount", () => {
+  it("falls back to hours x hourly rate when no org config is set", () => {
+    expect(lateDeductionAmount(2, 66.67)).toBeCloseTo(133.34, 2);
+    expect(lateDeductionAmount(0, 66.67)).toBe(0);
+  });
+
+  it("uses the flat first-hour amount once an admin configures it", () => {
+    const config = { firstHourAmount: 50, perExtraHourAmount: 100 };
+    expect(lateDeductionAmount(1, 66.67, config)).toBe(50);
+    expect(lateDeductionAmount(2, 66.67, config)).toBe(150); // 50 + 1*100
+    expect(lateDeductionAmount(3, 66.67, config)).toBe(250); // 50 + 2*100
+  });
+
+  it("repeats the first-hour amount for extra hours when perExtraHourAmount is left null", () => {
+    const config = { firstHourAmount: 50, perExtraHourAmount: null };
+    expect(lateDeductionAmount(3, 66.67, config)).toBe(150); // 50 * 3
+  });
+
+  it("still returns 0 for on-time (0 deduction hours) even with a flat config set", () => {
+    const config = { firstHourAmount: 50, perExtraHourAmount: 100 };
+    expect(lateDeductionAmount(0, 66.67, config)).toBe(0);
   });
 });
 

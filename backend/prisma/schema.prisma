@@ -20,11 +20,20 @@ model Organization {
   // Payroll cadence — every business pays on its own schedule, so this was pulled out of
   // hardcoded "1st/16th of the month" (bxs-bar's rule) into an org-level setting. Only the
   // fields relevant to the chosen payFrequency are used; the rest sit at their default.
-  payFrequency       String @default("SEMI_MONTHLY") // DAILY | WEEKLY | MONTHLY | SEMI_MONTHLY
+  payFrequency       String @default("SEMI_MONTHLY") // WEEKLY | MONTHLY | SEMI_MONTHLY
   weeklyPayWeekday   Int    @default(5) // 0 (Sun) - 6 (Sat) — payday when payFrequency=WEEKLY
   monthlyPayDay      Int    @default(1) // 1-28 — payday (of the following month) when payFrequency=MONTHLY
   semiMonthlyPayDay1 Int    @default(16) // payday for the 1st-15th period when payFrequency=SEMI_MONTHLY
   semiMonthlyPayDay2 Int    @default(1) // payday (of the following month) for the 16th-end period
+
+  // Late-arrival deduction — a flat baht amount the admin sets directly, instead of deriving
+  // it from each employee's hourly rate. Both null (the default) means "keep computing it
+  // from the employee's hourly rate x hours late" (the original bxs-bar behavior). Setting
+  // lateDeductionFirstHour switches every employee in this org to flat amounts: that value
+  // for the first late hour (1-60 min), then lateDeductionPerExtraHour (or the same value,
+  // if that one is left null) for each additional hour late beyond the first.
+  lateDeductionFirstHour    Decimal? @db.Decimal(12, 2)
+  lateDeductionPerExtraHour Decimal? @db.Decimal(12, 2)
 
   admins             Admin[]
   employees          Employee[]

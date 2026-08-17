@@ -28,6 +28,8 @@ export const serializePayrollConfig = (org: Organization) => ({
   monthlyPayDay: org.monthlyPayDay,
   semiMonthlyPayDay1: org.semiMonthlyPayDay1,
   semiMonthlyPayDay2: org.semiMonthlyPayDay2,
+  lateDeductionFirstHour: org.lateDeductionFirstHour === null ? null : Number(org.lateDeductionFirstHour),
+  lateDeductionPerExtraHour: org.lateDeductionPerExtraHour === null ? null : Number(org.lateDeductionPerExtraHour),
 });
 
 export const serializeEmployee = (emp: Employee) => ({

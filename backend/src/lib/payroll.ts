@@ -111,6 +111,28 @@ export const lateDeductionHours = (lateMinutes: number): number => {
   return Math.ceil(lateMinutes / 60);
 };
 
+export interface LateDeductionConfig {
+  firstHourAmount: number | null; // baht for the first late hour; null = fall back to hourlyRateValue
+  perExtraHourAmount: number | null; // baht per additional hour beyond the first; null = same as firstHourAmount
+}
+
+// baht amount deducted for `deductionHours` late-hour-buckets. Admins can set a flat baht
+// amount per org (firstHourAmount/perExtraHourAmount) instead of deriving it from each
+// employee's hourly rate — set via /api/payroll-settings, defaults to null (the original
+// hourlyRate-based calculation) until an admin configures it.
+export const lateDeductionAmount = (
+  deductionHours: number,
+  hourlyRateValue: number,
+  config?: LateDeductionConfig
+): number => {
+  if (deductionHours < 1) return 0;
+  if (config?.firstHourAmount != null) {
+    const perExtra = config.perExtraHourAmount ?? config.firstHourAmount;
+    return config.firstHourAmount + Math.max(0, deductionHours - 1) * perExtra;
+  }
+  return deductionHours * hourlyRateValue;
+};
+
 const WEEKDAYS = [
   { v: 0, label: "อาทิตย์" },
   { v: 1, label: "จันทร์" },

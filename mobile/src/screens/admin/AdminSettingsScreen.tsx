@@ -233,6 +233,32 @@ export function AdminSettingsScreen() {
               </>
             )}
 
+            <Text style={styles.label}>หักเงินมาสาย (ไม่บังคับ)</Text>
+            <Text style={styles.hint}>
+              เว้นว่างไว้ = คำนวณจากค่าแรงรายชั่วโมงของพนักงานแต่ละคน (ค่าเริ่มต้น) — ใส่ตัวเลขเพื่อกำหนดจำนวนบาทคงที่แทน
+            </Text>
+            <TextField
+              label="สายชั่วโมงแรก (1-60 นาที) หักกี่บาท"
+              value={payroll.lateDeductionFirstHour != null ? String(payroll.lateDeductionFirstHour) : ""}
+              onChangeText={(v) =>
+                setPayroll({ ...payroll, lateDeductionFirstHour: v === "" ? null : Number(v.replace(/[^0-9.]/g, "")) || 0 })
+              }
+              keyboardType="numeric"
+              placeholder="เช่น 50"
+            />
+            <TextField
+              label="สายชั่วโมงถัดไป (ต่อชั่วโมง) หักกี่บาท"
+              value={payroll.lateDeductionPerExtraHour != null ? String(payroll.lateDeductionPerExtraHour) : ""}
+              onChangeText={(v) =>
+                setPayroll({
+                  ...payroll,
+                  lateDeductionPerExtraHour: v === "" ? null : Number(v.replace(/[^0-9.]/g, "")) || 0,
+                })
+              }
+              keyboardType="numeric"
+              placeholder="เช่น 100 (เว้นว่าง = เท่ากับชั่วโมงแรก)"
+            />
+
             <Button
               title="บันทึกรอบการจ่ายเงินเดือน"
               variant="green"
