@@ -62,6 +62,7 @@ export const getPayrollForEmployee = async (
       date: o.date,
       hours: Number(o.hours),
       status: o.status,
+      approvedAmount: o.approvedAmount === null ? null : Number(o.approvedAmount),
     }))
   );
 };

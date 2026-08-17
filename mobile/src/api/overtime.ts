@@ -16,8 +16,8 @@ export const getAllOvertime = async (params: { employeeId?: string; status?: Lea
   return data;
 };
 
-export const setOvertimeStatus = async (id: string, status: "APPROVED" | "REJECTED") => {
-  const { data } = await api.patch<OvertimeRequest>(`/api/overtime/${id}/status`, { status });
+export const setOvertimeStatus = async (id: string, status: "APPROVED" | "REJECTED", approvedAmount?: number | null) => {
+  const { data } = await api.patch<OvertimeRequest>(`/api/overtime/${id}/status`, { status, approvedAmount });
   return data;
 };
 

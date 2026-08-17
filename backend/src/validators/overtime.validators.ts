@@ -12,6 +12,10 @@ export const createOvertimeSchema = z.object({
 
 export const overtimeStatusSchema = z.object({
   status: z.enum(["APPROVED", "REJECTED"]),
+  // only meaningful when status=APPROVED — the admin's own baht figure for this specific
+  // request, overriding the hours x hourlyRate x otRateMultiplier formula. Omitted/null =
+  // use the formula.
+  approvedAmount: z.number().min(0).nullable().optional(),
 });
 
 export const overtimeQuerySchema = z.object({

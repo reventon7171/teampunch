@@ -11,7 +11,11 @@ import { getAllLeaves, setLeaveStatus, deleteLeave } from "../../api/leaves";
 import { getAllDayOffSwaps, setDayOffSwapStatus, deleteDayOffSwap } from "../../api/dayOffSwaps";
 import { getAllOvertime, setOvertimeStatus, deleteOvertime } from "../../api/overtime";
 import { listEmployees } from "../../api/employees";
-import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS, formatThaiDate } from "../../utils/format";
+import { TextField } from "../../components/TextField";
+import { usePayrollConfig } from "../../hooks/usePayrollConfig";
+import { hourlyRateOf } from "../../utils/salary";
+import { OvertimeRequest } from "../../api/types";
+import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS, formatThaiDate, formatMoney } from "../../utils/format";
 import { colors, fontSize, spacing } from "../../theme";
 
 type Mode = "leave" | "swap" | "ot";
@@ -177,10 +181,15 @@ function OvertimeApprovalSection() {
   const qc = useQueryClient();
   const { data: overtimeRequests } = useQuery({ queryKey: ["adminOvertime"], queryFn: () => getAllOvertime() });
   const { data: employees } = useQuery({ queryKey: ["employees"], queryFn: listEmployees });
+  const payrollConfig = usePayrollConfig();
   const [error, setError] = useState("");
+  // per-request draft baht amount the admin can edit before confirming approval — keyed by
+  // request id, seeded lazily from the auto-calculated suggestion the first time it's touched
+  const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "APPROVED" | "REJECTED" }) => setOvertimeStatus(id, status),
+    mutationFn: ({ id, status, approvedAmount }: { id: string; status: "APPROVED" | "REJECTED"; approvedAmount?: number | null }) =>
+      setOvertimeStatus(id, status, approvedAmount),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["adminOvertime"] }),
     onError: (e) => setError(e instanceof Error ? e.message : "อัปเดตสถานะไม่สำเร็จ"),
   });
@@ -199,9 +208,22 @@ function OvertimeApprovalSection() {
 
   const nameOf = (employeeId: string) => employees?.find((e) => e.id === employeeId)?.name ?? "(ไม่พบพนักงาน)";
 
+  // default suggestion: hours x employee's hourly rate x org's OT multiplier — the same
+  // formula the server falls back to if the admin approves without editing this field
+  const suggestedAmount = (ot: OvertimeRequest) => {
+    const emp = employees?.find((e) => e.id === ot.employeeId);
+    if (!emp) return 0;
+    return Math.round(ot.hours * hourlyRateOf(emp) * payrollConfig.otRateMultiplier * 100) / 100;
+  };
+
+  const amountFor = (ot: OvertimeRequest) =>
+    amountDrafts[ot.id] ?? String(ot.approvedAmount ?? suggestedAmount(ot));
+
   return (
     <>
-      <Text style={styles.sub}>อนุมัติ/ปฏิเสธคำขอ OT — เฉพาะที่อนุมัติแล้วจะถูกคำนวณรวมเข้าเงินเดือนงวดที่ครอบคลุมวันนั้น</Text>
+      <Text style={styles.sub}>
+        อนุมัติ/ปฏิเสธคำขอ OT — ตัวเลขบาทเติมให้อัตโนมัติจากสูตร (ชม. x ค่าแรง/ชม. x อัตรา OT) แก้ไขเองก่อนกดอนุมัติได้ เฉพาะที่อนุมัติแล้วจะถูกคำนวณรวมเข้าเงินเดือนงวดที่ครอบคลุมวันนั้น
+      </Text>
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       {(!overtimeRequests || overtimeRequests.length === 0) && <Text style={styles.empty}>ยังไม่มีคำขอ OT</Text>}
@@ -214,15 +236,32 @@ function OvertimeApprovalSection() {
                 {formatThaiDate(ot.date)} · {ot.startTime}-{ot.endTime} · {ot.hours} ชม.
               </Text>
               {ot.reason && <Text style={styles.reason}>{ot.reason}</Text>}
+              {ot.status === "APPROVED" && ot.approvedAmount != null && (
+                <Text style={styles.reason}>อนุมัติแล้ว {formatMoney(ot.approvedAmount)} บาท</Text>
+              )}
             </View>
             <Tag
               tone={ot.status === "APPROVED" ? "ontime" : ot.status === "REJECTED" ? "late" : "pending"}
               label={LEAVE_STATUS_LABELS[ot.status]}
             />
           </View>
+          {ot.status !== "APPROVED" && (
+            <TextField
+              label="จำนวนเงิน OT ที่จะจ่าย (บาท)"
+              value={amountFor(ot)}
+              onChangeText={(v) => setAmountDrafts((d) => ({ ...d, [ot.id]: v }))}
+              keyboardType="numeric"
+            />
+          )}
           <View style={styles.actionsRow}>
             {ot.status !== "APPROVED" && (
-              <Button title="อนุมัติ" variant="green" onPress={() => statusMutation.mutate({ id: ot.id, status: "APPROVED" })} />
+              <Button
+                title="อนุมัติ"
+                variant="green"
+                onPress={() =>
+                  statusMutation.mutate({ id: ot.id, status: "APPROVED", approvedAmount: Number(amountFor(ot)) || 0 })
+                }
+              />
             )}
             {ot.status !== "REJECTED" && (
               <Button title="ปฏิเสธ" variant="ghost" onPress={() => statusMutation.mutate({ id: ot.id, status: "REJECTED" })} />

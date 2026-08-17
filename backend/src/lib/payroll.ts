@@ -55,6 +55,9 @@ export interface OvertimeRecord {
   date: string; // "YYYY-MM-DD"
   hours: number;
   status: LeaveStatus;
+  // admin-entered override amount for this specific request, set at approval time — null
+  // means fall back to hours x hourlyRate x config.otRateMultiplier
+  approvedAmount: number | null;
 }
 
 const DAYS_PER_MONTH_DIVISOR = 30; // the daily rate is always base salary / 30, every month, no exceptions
@@ -546,12 +549,14 @@ export const computePayroll = (
   const isCommissionPeriod = info.startDate <= monthEndDate && info.endDate >= monthEndDate;
   const commission = isCommissionPeriod ? commissionAmount : 0;
 
-  const otHours = otRecords
-    .filter(
-      (o) => o.employeeId === emp.id && o.status === "APPROVED" && o.date >= info.startDate && o.date <= info.endDate
-    )
-    .reduce((s, o) => s + o.hours, 0);
-  const otAmount = otHours * hourlyRate(emp) * config.otRateMultiplier;
+  const periodApprovedOt = otRecords.filter(
+    (o) => o.employeeId === emp.id && o.status === "APPROVED" && o.date >= info.startDate && o.date <= info.endDate
+  );
+  const otHours = periodApprovedOt.reduce((s, o) => s + o.hours, 0);
+  const otAmount = periodApprovedOt.reduce(
+    (s, o) => s + (o.approvedAmount != null ? o.approvedAmount : o.hours * hourlyRate(emp) * config.otRateMultiplier),
+    0
+  );
 
   const net =
     periodSalary -

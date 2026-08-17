@@ -85,10 +85,11 @@ git push
    - โมเดลใหม่ `OvertimeRequest` (org+employee scoped): date, startTime, endTime, hours (คำนวณจาก start/end ตอนส่งคำขอ เก็บไว้เลย ไม่คำนวณใหม่ทีหลัง), reason, status (PENDING/APPROVED/REJECTED เหมือน Leave) — รองรับ OT ข้ามเที่ยงคืนด้วย (`overtimeDurationHours` ใน `payroll.ts`)
    - พนักงาน: ยื่นคำขอ OT ได้ที่แท็บ "ลางาน" (โหมดใหม่ "ขอ OT") ระบุวันที่ + เวลาเริ่ม-สิ้นสุด — endpoint `POST /api/overtime`
    - แอดมิน: อนุมัติ/ปฏิเสธ/ลบคำขอ OT ที่หน้า "คำขอลา" (โหมดใหม่ "คำขอ OT") — endpoint `PATCH /api/overtime/:id/status`
-   - **เฉพาะ OT ที่อนุมัติแล้วเท่านั้น** ที่ถูกรวมเข้าเงินเดือน คิดจาก `computePayroll`'s `otHours`/`otAmount` (= ชม. OT ที่อนุมัติในงวดนั้น × ค่าแรง/ชม. ของพนักงานคนนั้น × `otRateMultiplier`) แสดงในหน้าเงินเดือนทั้งฝั่งพนักงาน (MyPayrollScreen) และแอดมิน (AdminPayrollScreen)
+   - **เฉพาะ OT ที่อนุมัติแล้วเท่านั้น** ที่ถูกรวมเข้าเงินเดือน คิดจาก `computePayroll`'s `otHours`/`otAmount` แสดงในหน้าเงินเดือนทั้งฝั่งพนักงาน (MyPayrollScreen) และแอดมิน (AdminPayrollScreen)
+   - **แอดมินกรอกจำนวนเงิน OT เองได้ตอนอนุมัติ** — `OvertimeRequest.approvedAmount` (nullable) ตอนแอดมินกด "อนุมัติ" ในแอป จะมีช่องกรอกบาทเติมให้อัตโนมัติจากสูตร (ชม. × ค่าแรง/ชม. × `otRateMultiplier`) แต่แก้ตัวเลขเองก่อนกดยืนยันได้ ถ้าแก้ `approvedAmount` จะถูกใช้แทนสูตรตอนคำนวณเงินเดือน (ถ้า null = ใช้สูตรตามปกติ) — ปฏิเสธคำขอจะล้างค่านี้ทิ้งเสมอ กันเลขค้างจากรอบอนุมัติเก่า
    - ยังไม่ทำ: แยกอัตราวันหยุด/วันทำงาน, เพดานชั่วโมง OT ต่อครั้ง, ปัดเศษเวลา, การอนุมัติหลายระดับ — ถ้าจะทำเพิ่มดูวิธี HumanSoft ทำไว้ในบทสนทนาเดิม
 
-Unit test ของ payroll engine: **77 ข้อ ผ่านหมด** (`backend/src/lib/payroll.test.ts`) — เป็นจุดที่ business logic ซับซ้อนที่สุดของระบบ ถ้าจะแก้อะไรเกี่ยวกับเงินเดือนอีก ให้รันเทสต์นี้ก่อน/หลังเสมอ
+Unit test ของ payroll engine: **78 ข้อ ผ่านหมด** (`backend/src/lib/payroll.test.ts`) — เป็นจุดที่ business logic ซับซ้อนที่สุดของระบบ ถ้าจะแก้อะไรเกี่ยวกับเงินเดือนอีก ให้รันเทสต์นี้ก่อน/หลังเสมอ
 
 ## 6. แอปเดิม (บขส. บาร์) — อย่าไปยุ่ง
 

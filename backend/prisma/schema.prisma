@@ -220,6 +220,11 @@ model OvertimeRequest {
   hours          Decimal     @db.Decimal(5, 2)
   reason         String?
   status         LeaveStatus @default(PENDING)
+  // Set by the admin at the moment of approval — overrides the default
+  // hours x hourlyRate x Organization.otRateMultiplier calculation for this specific request,
+  // so a business can pay a different amount than the formula would produce (e.g. a
+  // negotiated flat rate for that shift). Null means "use the formula" (see computePayroll).
+  approvedAmount Decimal?    @db.Decimal(12, 2)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 

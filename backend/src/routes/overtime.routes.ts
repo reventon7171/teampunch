@@ -68,12 +68,17 @@ router.patch(
   "/:id/status",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
-    const { status } = overtimeStatusSchema.parse(req.body);
+    const { status, approvedAmount } = overtimeStatusSchema.parse(req.body);
     const overtime = await prisma.overtimeRequest.findFirst({
       where: { id: req.params.id, organizationId: req.user!.organizationId },
     });
     if (!overtime) throw notFound("คำขอ OT");
-    const updated = await prisma.overtimeRequest.update({ where: { id: overtime.id }, data: { status } });
+    const updated = await prisma.overtimeRequest.update({
+      where: { id: overtime.id },
+      // rejecting (or re-approving without a figure) clears any previously-entered override
+      // so a stale amount can never linger from an earlier approve/reject cycle
+      data: { status, approvedAmount: status === "APPROVED" ? approvedAmount ?? null : null },
+    });
     res.json(serializeOvertime(updated));
   })
 );

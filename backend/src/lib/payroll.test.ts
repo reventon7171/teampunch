@@ -660,9 +660,9 @@ describe("computePayroll — overtime", () => {
 
   it("pays approved OT hours within the period at the configured multiplier", () => {
     const ot: OvertimeRecord[] = [
-      { employeeId: "e1", date: "2026-08-10", hours: 3, status: "APPROVED" },
-      { employeeId: "e1", date: "2026-08-20", hours: 5, status: "APPROVED" }, // outside 2026-08-B
-      { employeeId: "e1", date: "2026-08-11", hours: 2, status: "PENDING" }, // not approved
+      { employeeId: "e1", date: "2026-08-10", hours: 3, status: "APPROVED", approvedAmount: null },
+      { employeeId: "e1", date: "2026-08-20", hours: 5, status: "APPROVED", approvedAmount: null }, // outside 2026-08-B
+      { employeeId: "e1", date: "2026-08-11", hours: 2, status: "PENDING", approvedAmount: null }, // not approved
     ];
     const p = computePayroll(emp, "2026-08-B", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-16", [], ot);
     expect(p.otHours).toBe(3);
@@ -673,8 +673,15 @@ describe("computePayroll — overtime", () => {
 
   it("uses the org's configured otRateMultiplier instead of the default", () => {
     const config = { ...DEFAULT_PAYROLL_CONFIG, otRateMultiplier: 2 };
-    const ot: OvertimeRecord[] = [{ employeeId: "e1", date: "2026-08-10", hours: 4, status: "APPROVED" }];
+    const ot: OvertimeRecord[] = [{ employeeId: "e1", date: "2026-08-10", hours: 4, status: "APPROVED", approvedAmount: null }];
     const p = computePayroll(emp, "2026-08-B", config, [], [], [], 0, 0, "2026-08-16", [], ot);
     expect(p.otAmount).toBeCloseTo((1000 / 9) * 2 * 4, 2);
+  });
+
+  it("uses the admin-entered approvedAmount instead of the formula when set", () => {
+    const ot: OvertimeRecord[] = [{ employeeId: "e1", date: "2026-08-10", hours: 4, status: "APPROVED", approvedAmount: 250 }];
+    const p = computePayroll(emp, "2026-08-B", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-16", [], ot);
+    expect(p.otHours).toBe(4); // hours still tracked for display, even though the payout is overridden
+    expect(p.otAmount).toBe(250);
   });
 });

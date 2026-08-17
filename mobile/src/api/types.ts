@@ -69,6 +69,7 @@ export interface OvertimeRequest {
   hours: number;
   reason: string | null;
   status: LeaveStatus;
+  approvedAmount: number | null;
   createdAt: string;
 }
 

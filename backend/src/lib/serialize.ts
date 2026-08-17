@@ -126,6 +126,7 @@ export const serializeOvertime = (o: OvertimeRequest) => ({
   hours: Number(o.hours),
   reason: o.reason,
   status: o.status,
+  approvedAmount: o.approvedAmount === null ? null : Number(o.approvedAmount),
   createdAt: o.createdAt,
 });
 
