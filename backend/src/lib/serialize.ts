@@ -38,6 +38,12 @@ export const serializePayrollConfig = (org: Organization) => ({
     org.dailyWageAbsenceDeductionAmount === null ? null : Number(org.dailyWageAbsenceDeductionAmount),
 });
 
+export const serializeBilling = (org: Organization) => ({
+  plan: org.plan,
+  subscriptionStatus: org.subscriptionStatus,
+  isLifetimeFree: org.isLifetimeFree,
+});
+
 export const serializeEmployee = (emp: Employee) => ({
   id: emp.id,
   name: emp.name,

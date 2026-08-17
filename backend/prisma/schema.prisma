@@ -44,6 +44,14 @@ model Organization {
   dailyWageDeductAbsence          Boolean  @default(false)
   dailyWageAbsenceDeductionAmount Decimal? @db.Decimal(12, 2)
 
+  // Billing — scaffolding only, not enforced anywhere yet (no paywall, no payment gateway
+  // wired up). isLifetimeFree marks orgs that get to skip billing forever: every org that
+  // existed before this system was added was grandfathered in via migration, and early
+  // friends-and-family orgs can be marked the same way by hand in the database.
+  plan               String   @default("free") // free | paid (no other tiers yet)
+  subscriptionStatus String   @default("active") // active | past_due | canceled — unused until a gateway exists
+  isLifetimeFree     Boolean  @default(false)
+
   admins             Admin[]
   employees          Employee[]
   attendance         Attendance[]

@@ -10,6 +10,7 @@ import { ErrorBanner } from "../../components/ErrorBanner";
 import { ChoiceModal } from "../../components/ChoiceModal";
 import { changeAdminPassword, getWorkplaceLocation, setWorkplaceLocation, WorkplaceLocation } from "../../api/auth";
 import { getPayrollSettings, setPayrollSettings } from "../../api/payrollSettings";
+import { getBilling } from "../../api/billing";
 import { PayFrequency, PayrollConfig } from "../../utils/period";
 import { weekdayLabel } from "../../utils/format";
 import { useAuth } from "../../context/AuthContext";
@@ -63,6 +64,8 @@ export function AdminSettingsScreen() {
     },
     onError: (e) => setPayrollError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"),
   });
+
+  const billingQuery = useQuery({ queryKey: ["billing"], queryFn: getBilling });
 
   const locationQuery = useQuery({ queryKey: ["workplaceLocation"], queryFn: getWorkplaceLocation });
   const [lat, setLat] = useState("");
@@ -344,6 +347,22 @@ export function AdminSettingsScreen() {
           onSelect={(v) => payroll && setPayroll({ ...payroll, semiMonthlyPayDay2: Number(v) })}
           onClose={() => setPayrollPicker(null)}
         />
+      </Card>
+
+      <Card>
+        <Text style={styles.cardTitle}>แพ็กเกจการใช้งาน</Text>
+        {billingQuery.data ? (
+          <>
+            <Text style={styles.hint}>
+              {billingQuery.data.isLifetimeFree
+                ? "บัญชีนี้ใช้งานฟรีถาวร ไม่มีค่าใช้จ่าย"
+                : `แพ็กเกจปัจจุบัน: ${billingQuery.data.plan}`}
+            </Text>
+            <Text style={styles.hint}>ระบบเรียกเก็บเงินยังไม่เปิดใช้งาน ทุกกิจการใช้งานได้ฟรีในตอนนี้</Text>
+          </>
+        ) : (
+          <Text style={styles.hint}>กำลังโหลด...</Text>
+        )}
       </Card>
 
       <Button title="ออกจากระบบ" variant="red" onPress={logout} />
