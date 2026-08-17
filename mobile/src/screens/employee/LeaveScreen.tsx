@@ -7,10 +7,12 @@ import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
 import { DateField } from "../../components/DateField";
+import { TimeField } from "../../components/TimeField";
 import { Tag } from "../../components/Tag";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { getMyLeaves, requestLeave } from "../../api/leaves";
 import { getMyDayOffSwaps, requestDayOffSwap } from "../../api/dayOffSwaps";
+import { getMyOvertime, requestOvertime } from "../../api/overtime";
 import { PunchPhoto } from "../../api/attendance";
 import { LeaveType } from "../../api/types";
 import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS, formatThaiDate, weekdayLabel } from "../../utils/format";
@@ -20,7 +22,7 @@ import { colors, fontSize, radius, spacing } from "../../theme";
 
 const LEAVE_TYPES: LeaveType[] = ["SICK", "PERSONAL"];
 
-type Mode = "leave" | "swap";
+type Mode = "leave" | "swap" | "ot";
 
 export function LeaveScreen() {
   const { session } = useAuth();
@@ -29,14 +31,21 @@ export function LeaveScreen() {
 
   return (
     <Screen>
-      <Text style={styles.h1}>ระบบลางาน / สลับวันหยุด</Text>
+      <Text style={styles.h1}>ระบบลางาน / สลับวันหยุด / OT</Text>
 
       <View style={styles.modeRow}>
         <Button title="ขอลา" variant={mode === "leave" ? "navy" : "ghost"} onPress={() => setMode("leave")} />
         <Button title="ขอสลับวันหยุด" variant={mode === "swap" ? "navy" : "ghost"} onPress={() => setMode("swap")} />
+        <Button title="ขอ OT" variant={mode === "ot" ? "navy" : "ghost"} onPress={() => setMode("ot")} />
       </View>
 
-      {mode === "leave" ? <LeaveSection /> : <SwapSection daysOff={employee?.daysOff ?? []} />}
+      {mode === "leave" ? (
+        <LeaveSection />
+      ) : mode === "swap" ? (
+        <SwapSection daysOff={employee?.daysOff ?? []} />
+      ) : (
+        <OvertimeSection />
+      )}
     </Screen>
   );
 }
@@ -214,6 +223,74 @@ function SwapSection({ daysOff }: { daysOff: number[] }) {
             <Tag
               tone={sw.status === "APPROVED" ? "ontime" : sw.status === "REJECTED" ? "late" : "pending"}
               label={LEAVE_STATUS_LABELS[sw.status]}
+            />
+          </View>
+        </Card>
+      ))}
+    </>
+  );
+}
+
+function OvertimeSection() {
+  const qc = useQueryClient();
+  const { data: overtimeRequests } = useQuery({ queryKey: ["myOvertime"], queryFn: getMyOvertime });
+
+  const [showForm, setShowForm] = useState(false);
+  const [date, setDate] = useState(todayStr());
+  const [startTime, setStartTime] = useState("18:00");
+  const [endTime, setEndTime] = useState("20:00");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: () => requestOvertime({ date, startTime, endTime, reason: reason || undefined }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["myOvertime"] });
+      setShowForm(false);
+      setDate(todayStr());
+      setStartTime("18:00");
+      setEndTime("20:00");
+      setReason("");
+      setError("");
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : "ส่งคำขอ OT ไม่สำเร็จ"),
+  });
+
+  return (
+    <>
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
+
+      <Card>
+        {!showForm && <Button title="+ ยื่นคำขอ OT" onPress={() => setShowForm(true)} />}
+        {showForm && (
+          <View>
+            <DateField label="วันที่ทำ OT" value={date} onChange={setDate} />
+            <TimeField label="เวลาเริ่ม OT" value={startTime} onChange={setStartTime} />
+            <TimeField label="เวลาสิ้นสุด OT" value={endTime} onChange={setEndTime} />
+            <TextField label="เหตุผล (ถ้ามี)" value={reason} onChangeText={setReason} />
+            <Text style={styles.note}>เมื่อแอดมินอนุมัติแล้ว ชั่วโมง OT จะถูกคำนวณรวมเข้าเงินเดือนงวดที่ครอบคลุมวันนั้นอัตโนมัติ</Text>
+            <View style={styles.actionsRow}>
+              <Button title="ส่งคำขอ OT" variant="green" onPress={() => mutation.mutate()} loading={mutation.isPending} />
+              <Button title="ยกเลิก" variant="ghost" onPress={() => setShowForm(false)} />
+            </View>
+          </View>
+        )}
+      </Card>
+
+      <Text style={styles.h2}>ประวัติคำขอ OT</Text>
+      {(!overtimeRequests || overtimeRequests.length === 0) && <Text style={styles.empty}>ยังไม่มีคำขอ OT</Text>}
+      {overtimeRequests?.map((ot) => (
+        <Card key={ot.id} style={styles.rowCard}>
+          <View style={styles.row}>
+            <View>
+              <Text style={styles.rowDate}>{formatThaiDate(ot.date)}</Text>
+              <Text style={styles.rowSub}>
+                {ot.startTime}-{ot.endTime} · {ot.hours} ชม.
+              </Text>
+            </View>
+            <Tag
+              tone={ot.status === "APPROVED" ? "ontime" : ot.status === "REJECTED" ? "late" : "pending"}
+              label={LEAVE_STATUS_LABELS[ot.status]}
             />
           </View>
         </Card>

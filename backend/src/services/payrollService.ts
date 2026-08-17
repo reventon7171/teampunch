@@ -15,7 +15,7 @@ export const getPayrollForEmployee = async (
 ): Promise<PayrollBreakdown> => {
   const info = periodInfo(periodKey, config);
 
-  const [attendance, holidays, leaves, advance, commission, swaps] = await Promise.all([
+  const [attendance, holidays, leaves, advance, commission, swaps, overtimeRequests] = await Promise.all([
     prisma.attendance.findMany({
       where: { employeeId: emp.id, date: { gte: info.startDate, lte: info.endDate } },
     }),
@@ -30,6 +30,9 @@ export const getPayrollForEmployee = async (
     // approved swaps can straddle a period boundary (originalOffDate/swappedToDate on either
     // side), so this is intentionally NOT scoped to the period's date range like the others
     prisma.dayOffSwapRequest.findMany({ where: { employeeId: emp.id, status: "APPROVED" } }),
+    prisma.overtimeRequest.findMany({
+      where: { employeeId: emp.id, status: "APPROVED", date: { gte: info.startDate, lte: info.endDate } },
+    }),
   ]);
 
   return computePayroll(
@@ -53,6 +56,12 @@ export const getPayrollForEmployee = async (
       originalOffDate: s.originalOffDate,
       swappedToDate: s.swappedToDate,
       status: s.status,
+    })),
+    overtimeRequests.map((o) => ({
+      employeeId: o.employeeId,
+      date: o.date,
+      hours: Number(o.hours),
+      status: o.status,
     }))
   );
 };

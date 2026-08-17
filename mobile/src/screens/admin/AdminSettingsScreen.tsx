@@ -372,6 +372,18 @@ export function AdminSettingsScreen() {
               />
             )}
 
+            <Text style={styles.label}>อัตราจ่าย OT (เท่าของค่าแรง/ชม.)</Text>
+            <Text style={styles.hint}>
+              ใช้อัตราเดียวทั้งองค์กรกับ OT ที่อนุมัติแล้วทุกกรณี (ไม่แยกวันทำงาน/วันหยุด) — ค่าเริ่มต้น 1.5 เท่า ตามขั้นต่ำของกฎหมายแรงงานสำหรับ OT วันทำงานปกติ
+            </Text>
+            <TextField
+              label="อัตรา OT (เท่า)"
+              value={String(payroll.otRateMultiplier)}
+              onChangeText={(v) => setPayroll({ ...payroll, otRateMultiplier: Number(v.replace(/[^0-9.]/g, "")) || 1 })}
+              keyboardType="numeric"
+              placeholder="1.5"
+            />
+
             <Button
               title="บันทึกรอบการจ่ายเงินเดือน"
               variant="green"

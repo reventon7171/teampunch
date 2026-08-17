@@ -90,6 +90,8 @@ export function AdminPayrollScreen() {
             }
           />
 
+          {p.otHours > 0 && <Row label={`OT ที่อนุมัติแล้ว ${p.otHours} ชม.`} value={formatMoney(p.otAmount)} highlight />}
+
           {p.isCommissionPeriod ? (
             <TextField
               label="ค่าคอมมิชชั่น (บาท)"

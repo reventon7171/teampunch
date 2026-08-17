@@ -50,6 +50,13 @@ export interface DayOffSwapRecord {
   status: LeaveStatus;
 }
 
+export interface OvertimeRecord {
+  employeeId: string;
+  date: string; // "YYYY-MM-DD"
+  hours: number;
+  status: LeaveStatus;
+}
+
 const DAYS_PER_MONTH_DIVISOR = 30; // the daily rate is always base salary / 30, every month, no exceptions
 export const LEAVE_TYPES: LeaveType[] = ["SICK", "PERSONAL", "VACATION"];
 
@@ -63,6 +70,15 @@ export const dailyHours = (emp: Pick<PayrollEmployee, "workStart" | "workEnd">):
   let end = toMinutes(emp.workEnd);
   if (end <= start) end += 1440; // shift crosses midnight (e.g. 17:50-01:00)
   return Math.max((end - start) / 60, 0.01);
+};
+
+// duration in hours between an OT request's startTime/endTime, handling a range that
+// crosses midnight the same way dailyHours does for a work shift
+export const overtimeDurationHours = (startTime: string, endTime: string): number => {
+  const start = toMinutes(startTime);
+  let end = toMinutes(endTime);
+  if (end <= start) end += 1440;
+  return (end - start) / 60;
 };
 
 export const dailyRate = (emp: Pick<PayrollEmployee, "baseSalary">): number =>
@@ -261,6 +277,9 @@ export interface PayrollConfig {
   // optional extra flat penalty on top, admin-configured. Ignored for MONTHLY employees.
   dailyWageDeductAbsence: boolean;
   dailyWageAbsenceDeductionAmount: number | null; // baht per absent day; only used if the flag above is true
+  // flat multiplier of the employee's own hourly rate, applied to every APPROVED overtime
+  // hour org-wide (no separate workday/holiday rates — see Organization.otRateMultiplier)
+  otRateMultiplier: number;
 }
 
 // bxs-bar's original hardcoded schedule (paid the 16th and the 1st) — used as the default for
@@ -273,6 +292,7 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   semiMonthlyPayDay2: 1,
   dailyWageDeductAbsence: false,
   dailyWageAbsenceDeductionAmount: null,
+  otRateMultiplier: 1.5,
 };
 
 export interface PeriodInfo {
@@ -417,6 +437,8 @@ export interface PayrollBreakdown {
   commissionAmount: number;
   isCommissionPeriod: boolean; // true if this period is the one covering the month's last
   // day, i.e. where that month's Commission (still set once a month by the admin) is paid out
+  otHours: number; // sum of APPROVED overtime hours within the period
+  otAmount: number; // otHours x hourlyRate(emp) x config.otRateMultiplier
   net: number;
 }
 
@@ -432,7 +454,8 @@ export const computePayroll = (
   advanceAmount: number,
   commissionAmount: number,
   today: string = todayStr(),
-  swaps: DayOffSwapRecord[] = []
+  swaps: DayOffSwapRecord[] = [],
+  otRecords: OvertimeRecord[] = []
 ): PayrollBreakdown => {
   const info = periodInfo(periodKey, config);
   const wageType: WageType = emp.wageType ?? "MONTHLY";
@@ -523,6 +546,13 @@ export const computePayroll = (
   const isCommissionPeriod = info.startDate <= monthEndDate && info.endDate >= monthEndDate;
   const commission = isCommissionPeriod ? commissionAmount : 0;
 
+  const otHours = otRecords
+    .filter(
+      (o) => o.employeeId === emp.id && o.status === "APPROVED" && o.date >= info.startDate && o.date <= info.endDate
+    )
+    .reduce((s, o) => s + o.hours, 0);
+  const otAmount = otHours * hourlyRate(emp) * config.otRateMultiplier;
+
   const net =
     periodSalary -
     lateDeduction -
@@ -530,7 +560,8 @@ export const computePayroll = (
     dailyWageAbsenceDeduction -
     socialSecurityDeduction -
     advanceAmount +
-    commission;
+    commission +
+    otAmount;
 
   return {
     info,
@@ -549,6 +580,8 @@ export const computePayroll = (
     advanceAmount,
     commissionAmount: commission,
     isCommissionPeriod,
+    otHours,
+    otAmount,
     net,
   };
 };

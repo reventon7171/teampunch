@@ -60,6 +60,18 @@ export interface LeaveRequest {
   createdAt: string;
 }
 
+export interface OvertimeRequest {
+  id: string;
+  employeeId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  hours: number;
+  reason: string | null;
+  status: LeaveStatus;
+  createdAt: string;
+}
+
 export interface Holiday {
   id: string;
   date: string;
@@ -91,6 +103,8 @@ export interface PayrollBreakdown {
   advanceAmount: number;
   commissionAmount: number;
   isCommissionPeriod: boolean;
+  otHours: number;
+  otAmount: number;
   net: number;
 }
 

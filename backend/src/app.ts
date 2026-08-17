@@ -14,6 +14,7 @@ import adminRoutes from "./routes/admin.routes";
 import dayOffSwapRoutes from "./routes/dayOffSwaps.routes";
 import billingRoutes from "./routes/billing.routes";
 import shiftRoutes from "./routes/shifts.routes";
+import overtimeRoutes from "./routes/overtime.routes";
 
 export const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/day-off-swaps", dayOffSwapRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/shifts", shiftRoutes);
+app.use("/api/overtime", overtimeRoutes);
 
 app.use((_req, res) => res.status(404).json({ error: "ไม่พบ endpoint นี้" }));
 app.use(errorHandler);

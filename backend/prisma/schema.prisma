@@ -44,6 +44,13 @@ model Organization {
   dailyWageDeductAbsence          Boolean  @default(false)
   dailyWageAbsenceDeductionAmount Decimal? @db.Decimal(12, 2)
 
+  // Single flat multiplier applied to an employee's own hourly rate for every APPROVED
+  // overtime hour, org-wide — deliberately not split into separate workday/day-off/holiday
+  // rates like Thai labor law technically allows (1.5x / 3x / 2x): that's the HumanSoft-style
+  // approach, judged too complex for the SME-focused v1 here. Default 1.5 matches the legal
+  // minimum for regular-workday OT.
+  otRateMultiplier Decimal @default(1.5) @db.Decimal(4, 2)
+
   // Billing — scaffolding only, not enforced anywhere yet (no paywall, no payment gateway
   // wired up). isLifetimeFree marks orgs that get to skip billing forever: every org that
   // existed before this system was added was grandfathered in via migration, and early
@@ -65,6 +72,7 @@ model Organization {
   dayOffSwaps        DayOffSwapRequest[]
   workplaceLocation  WorkplaceLocation?
   shifts             Shift[]
+  overtimeRequests   OvertimeRequest[]
 }
 
 // A named work-time preset (e.g. "กะเช้า" 08:00-17:00) an org can offer so employees whose
@@ -128,6 +136,7 @@ model Employee {
   advances          Advance[]
   commissions       Commission[]
   dayOffSwaps       DayOffSwapRequest[]
+  overtimeRequests  OvertimeRequest[]
 
   @@unique([organizationId, username])
   @@index([organizationId, active])
@@ -188,6 +197,31 @@ model Leave {
   status     LeaveStatus @default(PENDING)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+
+  @@index([employeeId, date])
+  @@index([organizationId, status])
+}
+
+// Employee-requested overtime, for a single date/time range. hours is computed server-side
+// from startTime/endTime at request time and stored (not recomputed later) so an admin
+// editing settings afterward can't retroactively change an already-submitted request's
+// duration. Only APPROVED requests within a pay period count toward payroll (see
+// computePayroll's otRecords param) — paid at Organization.otRateMultiplier x hourlyRate,
+// one flat rate for the whole org regardless of workday/holiday (see Organization comment).
+model OvertimeRequest {
+  id             String      @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date           String // "YYYY-MM-DD"
+  startTime      String // "HH:MM"
+  endTime        String // "HH:MM", may be <= startTime for OT crossing midnight
+  hours          Decimal     @db.Decimal(5, 2)
+  reason         String?
+  status         LeaveStatus @default(PENDING)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@index([employeeId, date])
   @@index([organizationId, status])

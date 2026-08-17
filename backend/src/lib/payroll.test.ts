@@ -3,6 +3,7 @@ import {
   hourlyRate,
   computeLateMinutes,
   isCheckOutTooLate,
+  overtimeDurationHours,
   shiftDateStr,
   lateDeductionHours,
   lateDeductionAmount,
@@ -20,6 +21,7 @@ import {
   AttendanceRecord,
   LeaveRecord,
   DayOffSwapRecord,
+  OvertimeRecord,
 } from "./payroll";
 
 describe("dailyHours / hourlyRate", () => {
@@ -627,5 +629,52 @@ describe("computePayroll — optional daily-wage absence deduction", () => {
     ];
     const p = computePayroll(emp, "2026-08-B", config, attendance, [], [], 0, 0, "2026-08-16");
     expect(p.dailyWageAbsenceDeduction).toBe(0);
+  });
+});
+
+describe("overtimeDurationHours", () => {
+  it("computes plain same-day duration", () => {
+    expect(overtimeDurationHours("18:00", "20:00")).toBe(2);
+  });
+
+  it("handles a range crossing midnight", () => {
+    expect(overtimeDurationHours("23:00", "01:00")).toBe(2);
+  });
+});
+
+describe("computePayroll — overtime", () => {
+  const emp: PayrollEmployee = {
+    id: "e1",
+    baseSalary: 30000, // dailyRate = 1000, dailyHours = 9 (09:00-18:00) -> hourlyRate ≈ 111.11
+    workStart: "09:00",
+    workEnd: "18:00",
+    daysOff: [0],
+    hireDate: "2020-01-01",
+  };
+
+  it("adds 0 OT pay when there are no approved requests", () => {
+    const p = computePayroll(emp, "2026-08-B", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-16");
+    expect(p.otHours).toBe(0);
+    expect(p.otAmount).toBe(0);
+  });
+
+  it("pays approved OT hours within the period at the configured multiplier", () => {
+    const ot: OvertimeRecord[] = [
+      { employeeId: "e1", date: "2026-08-10", hours: 3, status: "APPROVED" },
+      { employeeId: "e1", date: "2026-08-20", hours: 5, status: "APPROVED" }, // outside 2026-08-B
+      { employeeId: "e1", date: "2026-08-11", hours: 2, status: "PENDING" }, // not approved
+    ];
+    const p = computePayroll(emp, "2026-08-B", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-16", [], ot);
+    expect(p.otHours).toBe(3);
+    // hourlyRate = 1000/9 ≈ 111.111, x1.5 (default multiplier) x3 hours
+    expect(p.otAmount).toBeCloseTo((1000 / 9) * 1.5 * 3, 2);
+    expect(p.net).toBeCloseTo(p.periodSalary + p.otAmount, 2);
+  });
+
+  it("uses the org's configured otRateMultiplier instead of the default", () => {
+    const config = { ...DEFAULT_PAYROLL_CONFIG, otRateMultiplier: 2 };
+    const ot: OvertimeRecord[] = [{ employeeId: "e1", date: "2026-08-10", hours: 4, status: "APPROVED" }];
+    const p = computePayroll(emp, "2026-08-B", config, [], [], [], 0, 0, "2026-08-16", [], ot);
+    expect(p.otAmount).toBeCloseTo((1000 / 9) * 2 * 4, 2);
   });
 });

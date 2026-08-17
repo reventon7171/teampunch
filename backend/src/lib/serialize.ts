@@ -1,4 +1,4 @@
-import { Employee, Organization, Attendance, Leave, Holiday, Advance, Commission, DayOffSwapRequest, Shift } from "@prisma/client";
+import { Employee, Organization, Attendance, Leave, Holiday, Advance, Commission, DayOffSwapRequest, Shift, OvertimeRequest } from "@prisma/client";
 import { PayrollEmployee, PayrollConfig, WageType } from "./payroll";
 
 const num = (d: unknown): number | null => (d === null || d === undefined ? null : Number(d));
@@ -23,6 +23,7 @@ export const toPayrollConfig = (org: Organization): PayrollConfig => ({
   dailyWageDeductAbsence: org.dailyWageDeductAbsence,
   dailyWageAbsenceDeductionAmount:
     org.dailyWageAbsenceDeductionAmount === null ? null : Number(org.dailyWageAbsenceDeductionAmount),
+  otRateMultiplier: Number(org.otRateMultiplier),
 });
 
 export const serializePayrollConfig = (org: Organization) => ({
@@ -36,6 +37,7 @@ export const serializePayrollConfig = (org: Organization) => ({
   dailyWageDeductAbsence: org.dailyWageDeductAbsence,
   dailyWageAbsenceDeductionAmount:
     org.dailyWageAbsenceDeductionAmount === null ? null : Number(org.dailyWageAbsenceDeductionAmount),
+  otRateMultiplier: Number(org.otRateMultiplier),
 });
 
 export const serializeBilling = (org: Organization) => ({
@@ -113,6 +115,18 @@ export const serializeCommission = (c: Commission) => ({
   employeeId: c.employeeId,
   yearMonth: c.yearMonth,
   amount: Number(c.amount),
+});
+
+export const serializeOvertime = (o: OvertimeRequest) => ({
+  id: o.id,
+  employeeId: o.employeeId,
+  date: o.date,
+  startTime: o.startTime,
+  endTime: o.endTime,
+  hours: Number(o.hours),
+  reason: o.reason,
+  status: o.status,
+  createdAt: o.createdAt,
 });
 
 export const serializeDayOffSwap = (s: DayOffSwapRequest) => ({

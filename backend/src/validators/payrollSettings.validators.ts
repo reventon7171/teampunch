@@ -12,4 +12,5 @@ export const updatePayrollSettingsSchema = z.object({
   lateDeductionPerExtraHour: z.number().min(0).nullable().optional(),
   dailyWageDeductAbsence: z.boolean().optional(),
   dailyWageAbsenceDeductionAmount: z.number().min(0).nullable().optional(),
+  otRateMultiplier: z.number().min(1, "อัตรา OT ต้องไม่น้อยกว่า 1 เท่า").optional(),
 });

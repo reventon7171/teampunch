@@ -17,6 +17,8 @@ export interface PayrollConfig {
   // for a day they didn't work
   dailyWageDeductAbsence: boolean;
   dailyWageAbsenceDeductionAmount: number | null;
+  // multiplier of each employee's own hourly rate, applied to every approved OT hour org-wide
+  otRateMultiplier: number;
 }
 
 // bxs-bar's original hardcoded schedule (paid the 16th and the 1st) — used until the real
@@ -31,6 +33,7 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   lateDeductionPerExtraHour: null,
   dailyWageDeductAbsence: false,
   dailyWageAbsenceDeductionAmount: null,
+  otRateMultiplier: 1.5,
 };
 
 export interface PeriodInfo {

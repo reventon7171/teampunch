@@ -76,6 +76,8 @@ export function MyPayrollScreen() {
             )}
             <Row label="หักเบิกล่วงหน้า" value={`${formatMoney(p.advanceAmount)} บาท`} negative={p.advanceAmount > 0} />
 
+            {p.otHours > 0 && <Row label={`OT ที่อนุมัติแล้ว ${p.otHours} ชม.`} value={`+${formatMoney(p.otAmount)} บาท`} />}
+
             {p.isCommissionPeriod ? (
               <Row label="ค่าคอมมิชชั่น" value={`+${formatMoney(p.commissionAmount)} บาท`} />
             ) : (

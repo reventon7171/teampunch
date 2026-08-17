@@ -9,24 +9,26 @@ import { ErrorBanner } from "../../components/ErrorBanner";
 import { PhotoViewerModal } from "../../components/PhotoViewerModal";
 import { getAllLeaves, setLeaveStatus, deleteLeave } from "../../api/leaves";
 import { getAllDayOffSwaps, setDayOffSwapStatus, deleteDayOffSwap } from "../../api/dayOffSwaps";
+import { getAllOvertime, setOvertimeStatus, deleteOvertime } from "../../api/overtime";
 import { listEmployees } from "../../api/employees";
 import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS, formatThaiDate } from "../../utils/format";
 import { colors, fontSize, spacing } from "../../theme";
 
-type Mode = "leave" | "swap";
+type Mode = "leave" | "swap" | "ot";
 
 export function AdminLeavesScreen() {
   const [mode, setMode] = useState<Mode>("leave");
 
   return (
     <Screen>
-      <Text style={styles.h1}>คำขอลา / สลับวันหยุด</Text>
+      <Text style={styles.h1}>คำขอลา / สลับวันหยุด / OT</Text>
       <View style={styles.modeRow}>
         <Button title="คำขอลา" variant={mode === "leave" ? "navy" : "ghost"} onPress={() => setMode("leave")} />
         <Button title="คำขอสลับวันหยุด" variant={mode === "swap" ? "navy" : "ghost"} onPress={() => setMode("swap")} />
+        <Button title="คำขอ OT" variant={mode === "ot" ? "navy" : "ghost"} onPress={() => setMode("ot")} />
       </View>
 
-      {mode === "leave" ? <LeaveApprovalSection /> : <SwapApprovalSection />}
+      {mode === "leave" ? <LeaveApprovalSection /> : mode === "swap" ? <SwapApprovalSection /> : <OvertimeApprovalSection />}
     </Screen>
   );
 }
@@ -164,6 +166,68 @@ function SwapApprovalSection() {
               <Button title="ปฏิเสธ" variant="ghost" onPress={() => statusMutation.mutate({ id: sw.id, status: "REJECTED" })} />
             )}
             <Button title="ลบ" variant="red" onPress={() => confirmDelete(sw.id)} />
+          </View>
+        </Card>
+      ))}
+    </>
+  );
+}
+
+function OvertimeApprovalSection() {
+  const qc = useQueryClient();
+  const { data: overtimeRequests } = useQuery({ queryKey: ["adminOvertime"], queryFn: () => getAllOvertime() });
+  const { data: employees } = useQuery({ queryKey: ["employees"], queryFn: listEmployees });
+  const [error, setError] = useState("");
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "APPROVED" | "REJECTED" }) => setOvertimeStatus(id, status),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adminOvertime"] }),
+    onError: (e) => setError(e instanceof Error ? e.message : "อัปเดตสถานะไม่สำเร็จ"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteOvertime(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adminOvertime"] }),
+  });
+
+  const confirmDelete = (id: string) => {
+    Alert.alert("ลบคำขอ OT", "ต้องการลบคำขอ OT นี้ใช่หรือไม่?", [
+      { text: "ยกเลิก", style: "cancel" },
+      { text: "ลบ", style: "destructive", onPress: () => deleteMutation.mutate(id) },
+    ]);
+  };
+
+  const nameOf = (employeeId: string) => employees?.find((e) => e.id === employeeId)?.name ?? "(ไม่พบพนักงาน)";
+
+  return (
+    <>
+      <Text style={styles.sub}>อนุมัติ/ปฏิเสธคำขอ OT — เฉพาะที่อนุมัติแล้วจะถูกคำนวณรวมเข้าเงินเดือนงวดที่ครอบคลุมวันนั้น</Text>
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
+
+      {(!overtimeRequests || overtimeRequests.length === 0) && <Text style={styles.empty}>ยังไม่มีคำขอ OT</Text>}
+      {overtimeRequests?.map((ot) => (
+        <Card key={ot.id}>
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name}>{nameOf(ot.employeeId)}</Text>
+              <Text style={styles.date}>
+                {formatThaiDate(ot.date)} · {ot.startTime}-{ot.endTime} · {ot.hours} ชม.
+              </Text>
+              {ot.reason && <Text style={styles.reason}>{ot.reason}</Text>}
+            </View>
+            <Tag
+              tone={ot.status === "APPROVED" ? "ontime" : ot.status === "REJECTED" ? "late" : "pending"}
+              label={LEAVE_STATUS_LABELS[ot.status]}
+            />
+          </View>
+          <View style={styles.actionsRow}>
+            {ot.status !== "APPROVED" && (
+              <Button title="อนุมัติ" variant="green" onPress={() => statusMutation.mutate({ id: ot.id, status: "APPROVED" })} />
+            )}
+            {ot.status !== "REJECTED" && (
+              <Button title="ปฏิเสธ" variant="ghost" onPress={() => statusMutation.mutate({ id: ot.id, status: "REJECTED" })} />
+            )}
+            <Button title="ลบ" variant="red" onPress={() => confirmDelete(ot.id)} />
           </View>
         </Card>
       ))}
