@@ -10,6 +10,7 @@ import { DateField } from "../../components/DateField";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { Tag } from "../../components/Tag";
 import { createEmployee, deleteEmployee, updateEmployee, listEmployees, EmployeeInput } from "../../api/employees";
+import { listShifts } from "../../api/shifts";
 import { Employee, WageType } from "../../api/types";
 import { colors, fontSize, radius, spacing } from "../../theme";
 import { weekdayLabel, formatThaiDate } from "../../utils/format";
@@ -44,6 +45,7 @@ const emptyForm: EmployeeInput = {
 export function AdminEmployeesScreen() {
   const qc = useQueryClient();
   const { data: employees } = useQuery({ queryKey: ["employees"], queryFn: listEmployees });
+  const { data: shifts } = useQuery({ queryKey: ["shifts"], queryFn: listShifts });
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<EmployeeInput>(emptyForm);
@@ -67,6 +69,7 @@ export function AdminEmployeesScreen() {
       hireDate: emp.hireDate ?? todayStr(),
       socialSecurityRate: emp.socialSecurityRate,
       wageType: emp.wageType,
+      shiftId: emp.shiftId,
       username: emp.username,
       password: "",
     });
@@ -223,8 +226,35 @@ export function AdminEmployeesScreen() {
             value={form.password}
             onChangeText={(v) => setForm({ ...form, password: v })}
           />
-          <TimeField label="เวลาเข้างาน" value={form.workStart} onChange={(v) => setForm({ ...form, workStart: v })} />
-          <TimeField label="เวลาออกงาน" value={form.workEnd} onChange={(v) => setForm({ ...form, workEnd: v })} />
+          {!!shifts?.length && (
+            <>
+              <Text style={styles.label}>กะการทำงาน (ไม่บังคับ)</Text>
+              <View style={styles.chipsRow}>
+                <Pressable
+                  onPress={() => setForm({ ...form, shiftId: null })}
+                  style={[styles.chip, !form.shiftId && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, !form.shiftId && styles.chipTextActive]}>กำหนดเอง</Text>
+                </Pressable>
+                {shifts.map((s) => {
+                  const active = form.shiftId === s.id;
+                  return (
+                    <Pressable
+                      key={s.id}
+                      onPress={() => setForm({ ...form, shiftId: s.id, workStart: s.startTime, workEnd: s.endTime })}
+                      style={[styles.chip, active && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {s.name} ({s.startTime}-{s.endTime})
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+          <TimeField label="เวลาเข้างาน" value={form.workStart} onChange={(v) => setForm({ ...form, workStart: v, shiftId: null })} />
+          <TimeField label="เวลาออกงาน" value={form.workEnd} onChange={(v) => setForm({ ...form, workEnd: v, shiftId: null })} />
           <DateField
             label="วันที่เริ่มงาน"
             value={form.hireDate}
@@ -266,7 +296,8 @@ export function AdminEmployeesScreen() {
               </View>
               <Text style={styles.empPosition}>{emp.position || "—"}</Text>
               <Text style={styles.empDetail}>
-                เข้า {emp.workStart} · ออก {emp.workEnd} ·{" "}
+                เข้า {emp.workStart} · ออก {emp.workEnd}
+                {emp.shiftId ? ` · กะ: ${shifts?.find((s) => s.id === emp.shiftId)?.name ?? "-"}` : ""} ·{" "}
                 {emp.wageType === "DAILY_WAGE"
                   ? `ค่าจ้างรายวัน ${formatMoney(emp.baseSalary / 30)} บาท/วัน`
                   : `เงินเดือน ${formatMoney(emp.baseSalary)} บาท/ด.`}{" "}

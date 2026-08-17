@@ -81,7 +81,6 @@ export const computeLateMinutes = (workStart: string, checkinTime: string): numb
   return Math.max(0, diff);
 };
 
-export const EARLY_CHECKIN_WINDOW_MINUTES = 30;
 export const LATE_CHECKOUT_WINDOW_MINUTES = 60;
 
 // signed minutes from `fromTime` to `toTime` (both "HH:MM"), wrapped to whichever direction
@@ -93,11 +92,6 @@ const minutesBetween = (fromTime: string, toTime: string): number => {
   if (diff < -720) diff += 1440;
   return diff;
 };
-
-// true if `nowTime` is more than EARLY_CHECKIN_WINDOW_MINUTES minutes before `workStart` —
-// blocks checking in hours ahead of a shift, while still allowing a reasonable early arrival
-export const isCheckInTooEarly = (workStart: string, nowTime: string): boolean =>
-  minutesBetween(nowTime, workStart) > EARLY_CHECKIN_WINDOW_MINUTES;
 
 // true if `nowTime` is more than LATE_CHECKOUT_WINDOW_MINUTES minutes after `workEnd` —
 // no early-side restriction, only a deadline for closing out the shift

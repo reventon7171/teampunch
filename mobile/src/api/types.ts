@@ -13,6 +13,7 @@ export interface Employee {
   active: boolean;
   socialSecurityRate: number;
   wageType: WageType;
+  shiftId: string | null;
   createdAt: string;
 }
 

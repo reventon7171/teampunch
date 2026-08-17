@@ -11,10 +11,16 @@ export interface EmployeeInput {
   hireDate: string;
   socialSecurityRate?: number;
   wageType?: WageType;
+  shiftId?: string | null;
   username: string;
   password?: string;
   active?: boolean;
 }
+
+export const setMyShift = async (shiftId: string): Promise<Employee> => {
+  const { data } = await api.put<Employee>("/api/employees/me/shift", { shiftId });
+  return data;
+};
 
 export const listEmployees = async (): Promise<Employee[]> => {
   const { data } = await api.get<Employee[]>("/api/employees");

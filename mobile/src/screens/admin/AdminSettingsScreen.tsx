@@ -8,9 +8,11 @@ import { Button } from "../../components/Button";
 import { TextField } from "../../components/TextField";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { ChoiceModal } from "../../components/ChoiceModal";
+import { TimeField } from "../../components/TimeField";
 import { changeAdminPassword, getWorkplaceLocation, setWorkplaceLocation, WorkplaceLocation } from "../../api/auth";
 import { getPayrollSettings, setPayrollSettings } from "../../api/payrollSettings";
 import { getBilling } from "../../api/billing";
+import { listShifts, createShift, updateShift, deleteShift, Shift, ShiftInput } from "../../api/shifts";
 import { PayFrequency, PayrollConfig } from "../../utils/period";
 import { weekdayLabel } from "../../utils/format";
 import { useAuth } from "../../context/AuthContext";
@@ -66,6 +68,62 @@ export function AdminSettingsScreen() {
   });
 
   const billingQuery = useQuery({ queryKey: ["billing"], queryFn: getBilling });
+
+  const MAX_SHIFTS = 3;
+  const emptyShiftForm: ShiftInput = { name: "", startTime: "08:00", endTime: "17:00" };
+  const shiftsQuery = useQuery({ queryKey: ["shifts"], queryFn: listShifts });
+  const [showShiftForm, setShowShiftForm] = useState(false);
+  const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
+  const [shiftForm, setShiftForm] = useState<ShiftInput>(emptyShiftForm);
+  const [shiftError, setShiftError] = useState("");
+
+  const closeShiftForm = () => {
+    setShowShiftForm(false);
+    setEditingShiftId(null);
+    setShiftForm(emptyShiftForm);
+  };
+
+  const startEditShift = (s: Shift) => {
+    setEditingShiftId(s.id);
+    setShiftForm({ name: s.name, startTime: s.startTime, endTime: s.endTime });
+    setShowShiftForm(true);
+  };
+
+  const createShiftMutation = useMutation({
+    mutationFn: () => createShift(shiftForm),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shifts"] });
+      closeShiftForm();
+      setShiftError("");
+    },
+    onError: (e) => setShiftError(e instanceof Error ? e.message : "บันทึกกะไม่สำเร็จ"),
+  });
+
+  const updateShiftMutation = useMutation({
+    mutationFn: () => {
+      if (!editingShiftId) throw new Error("ไม่พบกะที่จะแก้ไข");
+      return updateShift(editingShiftId, shiftForm);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shifts"] });
+      closeShiftForm();
+      setShiftError("");
+    },
+    onError: (e) => setShiftError(e instanceof Error ? e.message : "บันทึกการแก้ไขไม่สำเร็จ"),
+  });
+
+  const deleteShiftMutation = useMutation({
+    mutationFn: (id: string) => deleteShift(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shifts"] }),
+    onError: (e) => setShiftError(e instanceof Error ? e.message : "ลบกะไม่สำเร็จ"),
+  });
+
+  const confirmDeleteShift = (id: string, name: string) => {
+    Alert.alert("ลบกะ", `ลบกะ "${name}" ใช่หรือไม่? พนักงานที่ใช้กะนี้อยู่จะยังคงเวลาทำงานเดิมไว้ แต่จะไม่ผูกกับกะนี้อีกต่อไป`, [
+      { text: "ยกเลิก", style: "cancel" },
+      { text: "ลบ", style: "destructive", onPress: () => deleteShiftMutation.mutate(id) },
+    ]);
+  };
 
   const locationQuery = useQuery({ queryKey: ["workplaceLocation"], queryFn: getWorkplaceLocation });
   const [lat, setLat] = useState("");
@@ -350,6 +408,50 @@ export function AdminSettingsScreen() {
       </Card>
 
       <Card>
+        <Text style={styles.cardTitle}>กะการทำงาน (สูงสุด {MAX_SHIFTS} กะ)</Text>
+        <Text style={styles.hint}>
+          ตั้งกะไว้ให้พนักงานเลือกเองได้ เช่น "กะเช้า" 08:00-17:00, "กะบ่าย" 13:00-22:00 — พนักงานสลับกะเองได้จากหน้าตอกบัตร
+          โดยไม่ต้องรอแอดมินแก้ไขเวลาให้
+        </Text>
+        <ErrorBanner message={shiftError} onDismiss={() => setShiftError("")} />
+
+        {shiftsQuery.data?.map((s) => (
+          <View key={s.id} style={styles.shiftRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.shiftName}>{s.name}</Text>
+              <Text style={styles.hint}>
+                {s.startTime} - {s.endTime}
+              </Text>
+            </View>
+            <Button title="แก้ไข" variant="ghost" onPress={() => startEditShift(s)} />
+            <Button title="ลบ" variant="red" onPress={() => confirmDeleteShift(s.id, s.name)} />
+          </View>
+        ))}
+
+        {!showShiftForm && (shiftsQuery.data?.length ?? 0) < MAX_SHIFTS && (
+          <Button title="+ เพิ่มกะใหม่" variant="green" onPress={() => setShowShiftForm(true)} />
+        )}
+
+        {showShiftForm && (
+          <>
+            <TextField label="ชื่อกะ" value={shiftForm.name} onChangeText={(v) => setShiftForm({ ...shiftForm, name: v })} placeholder="เช่น กะเช้า" />
+            <TimeField label="เวลาเข้างาน" value={shiftForm.startTime} onChange={(v) => setShiftForm({ ...shiftForm, startTime: v })} />
+            <TimeField label="เวลาออกงาน" value={shiftForm.endTime} onChange={(v) => setShiftForm({ ...shiftForm, endTime: v })} />
+            <View style={styles.actionsRow}>
+              <Button
+                title={editingShiftId ? "บันทึกการแก้ไข" : "บันทึกกะ"}
+                variant="green"
+                onPress={() => (editingShiftId ? updateShiftMutation.mutate() : createShiftMutation.mutate())}
+                disabled={!shiftForm.name}
+                loading={editingShiftId ? updateShiftMutation.isPending : createShiftMutation.isPending}
+              />
+              <Button title="ยกเลิก" variant="ghost" onPress={closeShiftForm} />
+            </View>
+          </>
+        )}
+      </Card>
+
+      <Card>
         <Text style={styles.cardTitle}>แพ็กเกจการใช้งาน</Text>
         {billingQuery.data ? (
           <>
@@ -404,4 +506,6 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipText: { fontSize: fontSize.sm, color: colors.ink },
   chipTextActive: { color: colors.white },
+  shiftRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.sm },
+  shiftName: { fontSize: fontSize.sm, fontWeight: "700", color: colors.ink },
 });

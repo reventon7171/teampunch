@@ -3,12 +3,38 @@ import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireRole, requireSelfOrAdmin } from "../middleware/auth";
 import { createEmployeeSchema, updateEmployeeSchema } from "../validators/employee.validators";
+import { selectShiftSchema } from "../validators/shift.validators";
 import { serializeEmployee } from "../lib/serialize";
 import { hashPassword } from "../lib/password";
 import { badRequest, conflict, notFound } from "../lib/errors";
 
 const router = Router();
 router.use(requireAuth);
+
+// looks up a shift belonging to this org and returns the workStart/workEnd/shiftId fields
+// to merge into an employee update — shiftId picks the times, not the other way around
+const resolveShiftTimes = async (shiftId: string, organizationId: string) => {
+  const shift = await prisma.shift.findFirst({ where: { id: shiftId, organizationId } });
+  if (!shift) throw notFound("กะการทำงาน");
+  return { shiftId: shift.id, workStart: shift.startTime, workEnd: shift.endTime };
+};
+
+// employees pick their own shift from the org's presets (e.g. switching from a morning to
+// an afternoon shift mid-month) — this is the only self-service write on the employee row
+router.put(
+  "/me/shift",
+  requireRole("employee"),
+  asyncHandler(async (req, res) => {
+    const { shiftId } = selectShiftSchema.parse(req.body);
+    const organizationId = req.user!.organizationId;
+    const shiftTimes = await resolveShiftTimes(shiftId, organizationId);
+    const updated = await prisma.employee.update({
+      where: { id: req.user!.id },
+      data: shiftTimes,
+    });
+    res.json(serializeEmployee(updated));
+  })
+);
 
 router.get(
   "/",
@@ -34,14 +60,16 @@ router.post(
     if (existing) throw conflict("มี Username นี้อยู่แล้ว กรุณาใช้ชื่ออื่น");
 
     const passwordHash = await hashPassword(input.password);
+    const shiftTimes = input.shiftId ? await resolveShiftTimes(input.shiftId, organizationId) : null;
     const employee = await prisma.employee.create({
       data: {
         organizationId,
         name: input.name,
         position: input.position,
         baseSalary: input.baseSalary,
-        workStart: input.workStart,
-        workEnd: input.workEnd,
+        workStart: shiftTimes?.workStart ?? input.workStart,
+        workEnd: shiftTimes?.workEnd ?? input.workEnd,
+        shiftId: shiftTimes?.shiftId,
         daysOff: input.daysOff,
         hireDate: input.hireDate,
         socialSecurityRate: input.socialSecurityRate,
@@ -83,14 +111,18 @@ router.patch(
     }
 
     const passwordHash = input.password ? await hashPassword(input.password) : undefined;
+    // shiftId: string -> adopt that shift's times; null -> detach (keep workStart/workEnd as
+    // given/unchanged); undefined -> no change to either field
+    const shiftTimes = input.shiftId ? await resolveShiftTimes(input.shiftId, organizationId) : null;
     const updated = await prisma.employee.update({
       where: { id: employee.id },
       data: {
         name: input.name,
         position: input.position,
         baseSalary: input.baseSalary,
-        workStart: input.workStart,
-        workEnd: input.workEnd,
+        workStart: shiftTimes?.workStart ?? input.workStart,
+        workEnd: shiftTimes?.workEnd ?? input.workEnd,
+        shiftId: shiftTimes ? shiftTimes.shiftId : input.shiftId,
         daysOff: input.daysOff,
         hireDate: input.hireDate,
         socialSecurityRate: input.socialSecurityRate,

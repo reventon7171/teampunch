@@ -7,9 +7,12 @@ import { Button } from "../../components/Button";
 import { Tag } from "../../components/Tag";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { StampedCapture, StampedCaptureHandle } from "../../components/StampedCapture";
+import { ChoiceModal } from "../../components/ChoiceModal";
 import { useAuth } from "../../context/AuthContext";
 import { checkIn, getTodayStatus, PunchPhoto } from "../../api/attendance";
 import { getMyPayroll } from "../../api/payroll";
+import { setMyShift } from "../../api/employees";
+import { listShifts } from "../../api/shifts";
 import { periodKeyFromDate, todayStr } from "../../utils/period";
 import { usePayrollConfig } from "../../hooks/usePayrollConfig";
 import { colors, fontSize, radius, spacing } from "../../theme";
@@ -24,10 +27,20 @@ function useClock() {
 }
 
 export function PunchScreen() {
-  const { session, logout } = useAuth();
+  const { session, logout, updateEmployeeSession } = useAuth();
   const employee = session?.role === "employee" ? session.employee : null;
   const clock = useClock();
   const qc = useQueryClient();
+
+  const shiftsQuery = useQuery({ queryKey: ["shifts"], queryFn: listShifts });
+  const [shiftPickerOpen, setShiftPickerOpen] = useState(false);
+  const switchShiftMutation = useMutation({
+    mutationFn: (shiftId: string) => setMyShift(shiftId),
+    onSuccess: (updated) => {
+      updateEmployeeSession(updated);
+      qc.invalidateQueries({ queryKey: ["today"] });
+    },
+  });
 
   const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [geoStatus, setGeoStatus] = useState("");
@@ -115,8 +128,22 @@ export function PunchScreen() {
           <Text style={styles.shift}>
             กะงาน {employee.workStart}–{employee.workEnd}
           </Text>
+          {!!shiftsQuery.data?.length && (
+            <Pressable onPress={() => setShiftPickerOpen(true)}>
+              <Text style={styles.switchShiftLink}>เปลี่ยนกะ</Text>
+            </Pressable>
+          )}
           <Text style={styles.clock}>{clock.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</Text>
         </View>
+
+        <ChoiceModal
+          visible={shiftPickerOpen}
+          title="เลือกกะการทำงาน"
+          options={(shiftsQuery.data ?? []).map((s) => ({ label: `${s.name} (${s.startTime}-${s.endTime})`, value: s.id }))}
+          selected={employee.shiftId ?? ""}
+          onSelect={(v) => switchShiftMutation.mutate(v)}
+          onClose={() => setShiftPickerOpen(false)}
+        />
 
         {isOffToday && !alreadyCheckedIn && today?.offReason && (
           <Tag
@@ -269,6 +296,13 @@ const styles = StyleSheet.create({
   },
   clockBlock: { alignItems: "center", paddingVertical: spacing.md },
   shift: { fontSize: fontSize.sm, color: colors.creamInkMuted, marginBottom: spacing.xs },
+  switchShiftLink: {
+    fontSize: fontSize.xs,
+    color: colors.navy,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+    marginBottom: spacing.xs,
+  },
   clock: { fontSize: fontSize.clock, fontWeight: "700", color: colors.creamInk },
   captureGrid: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   captureCard: {

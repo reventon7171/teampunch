@@ -17,7 +17,6 @@ import {
   lateDeductionAmount,
   hourlyRate,
   weekdayLabel,
-  isCheckInTooEarly,
   isCheckOutTooLate,
   shiftDateStr,
 } from "../lib/payroll";
@@ -97,9 +96,6 @@ router.post(
     if (existing?.checkInTime) throw conflict("วันนี้ตอกบัตรเข้างานไปแล้ว");
 
     const time = nowHHMMBangkok();
-    if (isCheckInTooEarly(emp.workStart, time)) {
-      throw conflict(`เช็คอินได้ไม่เกิน 30 นาทีก่อนเวลาเข้างาน (${emp.workStart})`);
-    }
 
     const payrollEmp = toPayrollEmployee(emp);
     const lateMinutes = computeLateMinutes(emp.workStart, time);

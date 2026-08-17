@@ -1,4 +1,4 @@
-import { Employee, Organization, Attendance, Leave, Holiday, Advance, Commission, DayOffSwapRequest } from "@prisma/client";
+import { Employee, Organization, Attendance, Leave, Holiday, Advance, Commission, DayOffSwapRequest, Shift } from "@prisma/client";
 import { PayrollEmployee, PayrollConfig, WageType } from "./payroll";
 
 const num = (d: unknown): number | null => (d === null || d === undefined ? null : Number(d));
@@ -57,7 +57,15 @@ export const serializeEmployee = (emp: Employee) => ({
   active: emp.active,
   socialSecurityRate: Number(emp.socialSecurityRate),
   wageType: emp.wageType,
+  shiftId: emp.shiftId,
   createdAt: emp.createdAt,
+});
+
+export const serializeShift = (s: Shift) => ({
+  id: s.id,
+  name: s.name,
+  startTime: s.startTime,
+  endTime: s.endTime,
 });
 
 export const serializeAttendance = (a: Attendance) => ({

@@ -64,6 +64,25 @@ model Organization {
   commissions        Commission[]
   dayOffSwaps        DayOffSwapRequest[]
   workplaceLocation  WorkplaceLocation?
+  shifts             Shift[]
+}
+
+// A named work-time preset (e.g. "กะเช้า" 08:00-17:00) an org can offer so employees whose
+// hours rotate don't need an admin to edit their record every time — they just pick a shift
+// themselves (see Employee.shiftId). Capped at 3 per org, enforced in the route layer.
+model Shift {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  startTime      String // "HH:MM"
+  endTime        String // "HH:MM", may be <= startTime for overnight shifts
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employees Employee[]
+
+  @@index([organizationId])
 }
 
 model Admin {
@@ -95,6 +114,12 @@ model Employee {
   active       Boolean  @default(true)
   socialSecurityRate Decimal @default(0) @db.Decimal(5, 2) // % deducted from this employee's gross pay each period (0 = no deduction). Percent of that period's pay, not a flat monthly figure.
   wageType     String   @default("MONTHLY") // MONTHLY (flat salary, prorated by hire date) | DAILY_WAGE (paid baseSalary/30 for each day actually checked in that period, nothing for days not worked — no late/leave deduction layered on top since there's no base salary to deduct from)
+  // Optional link to one of the org's Shift presets. workStart/workEnd stay the source of
+  // truth actually used everywhere (payroll, attendance, late calc) — picking a shift just
+  // copies its times into those fields, whether an admin does it or the employee switches
+  // themself. Null means "custom hours, not tied to a preset shift".
+  shiftId      String?
+  shift        Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

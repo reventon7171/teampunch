@@ -2,7 +2,6 @@ import {
   dailyHours,
   hourlyRate,
   computeLateMinutes,
-  isCheckInTooEarly,
   isCheckOutTooLate,
   shiftDateStr,
   lateDeductionHours,
@@ -56,29 +55,6 @@ describe("computeLateMinutes", () => {
     // shift starts 23:50; checking in at 00:05 is naturally past midnight but only 15 min late,
     // not (incorrectly) treated as ~23h45m early
     expect(computeLateMinutes("23:50", "00:05")).toBe(15);
-  });
-});
-
-describe("isCheckInTooEarly", () => {
-  it("allows check-in exactly at the 30-minute early boundary", () => {
-    expect(isCheckInTooEarly("17:50", "17:20")).toBe(false);
-  });
-
-  it("blocks check-in more than 30 minutes early", () => {
-    expect(isCheckInTooEarly("17:50", "17:19")).toBe(true);
-    expect(isCheckInTooEarly("17:50", "08:00")).toBe(true);
-  });
-
-  it("allows on-time or late check-in", () => {
-    expect(isCheckInTooEarly("17:50", "17:50")).toBe(false);
-    expect(isCheckInTooEarly("17:50", "18:30")).toBe(false);
-  });
-
-  it("handles a shift starting just after midnight — checking in a bit before it is still 'early', not treated as ~23h premature", () => {
-    // shift starts 00:10; checking in at 23:45 the prior evening is 25 min early
-    expect(isCheckInTooEarly("00:10", "23:45")).toBe(false);
-    // 23:30 would be 40 min early — too early
-    expect(isCheckInTooEarly("00:10", "23:30")).toBe(true);
   });
 });
 
