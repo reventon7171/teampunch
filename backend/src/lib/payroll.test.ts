@@ -14,7 +14,8 @@ import {
   periodKeyFromDate,
   shiftPeriod,
   computePayroll,
-  BONUS_AMOUNT,
+  DEFAULT_PAYROLL_CONFIG,
+  PayrollConfig,
   PayrollEmployee,
   AttendanceRecord,
   LeaveRecord,
@@ -268,69 +269,123 @@ describe("countAbsencesInRange", () => {
   });
 });
 
-describe("period helpers", () => {
+describe("period helpers — SEMI_MONTHLY (default config)", () => {
   it("periodKeyFromDate splits the month at day 15/16", () => {
-    expect(periodKeyFromDate("2026-08-01")).toBe("2026-08-H1");
-    expect(periodKeyFromDate("2026-08-15")).toBe("2026-08-H1");
-    expect(periodKeyFromDate("2026-08-16")).toBe("2026-08-H2");
-    expect(periodKeyFromDate("2026-08-31")).toBe("2026-08-H2");
+    expect(periodKeyFromDate("2026-08-01", DEFAULT_PAYROLL_CONFIG)).toBe("2026-08-H1");
+    expect(periodKeyFromDate("2026-08-15", DEFAULT_PAYROLL_CONFIG)).toBe("2026-08-H1");
+    expect(periodKeyFromDate("2026-08-16", DEFAULT_PAYROLL_CONFIG)).toBe("2026-08-H2");
+    expect(periodKeyFromDate("2026-08-31", DEFAULT_PAYROLL_CONFIG)).toBe("2026-08-H2");
   });
 
-  it("periodInfo computes correct pay dates", () => {
-    const h1 = periodInfo("2026-08-H1");
+  it("periodInfo computes correct pay dates using the default 16th/1st schedule", () => {
+    const h1 = periodInfo("2026-08-H1", DEFAULT_PAYROLL_CONFIG);
     expect(h1.startDate).toBe("2026-08-01");
     expect(h1.endDate).toBe("2026-08-15");
     expect(h1.payDate).toBe("2026-08-16");
 
-    const h2 = periodInfo("2026-08-H2");
+    const h2 = periodInfo("2026-08-H2", DEFAULT_PAYROLL_CONFIG);
     expect(h2.startDate).toBe("2026-08-16");
     expect(h2.endDate).toBe("2026-08-31");
     expect(h2.payDate).toBe("2026-09-01"); // paid on the 1st of next month
 
     // December H2 rolls into January of the next year
-    const dec = periodInfo("2026-12-H2");
+    const dec = periodInfo("2026-12-H2", DEFAULT_PAYROLL_CONFIG);
     expect(dec.payDate).toBe("2027-01-01");
   });
 
+  it("respects a custom semi-monthly pay day configuration", () => {
+    const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, semiMonthlyPayDay1: 20, semiMonthlyPayDay2: 5 };
+    expect(periodInfo("2026-08-H1", config).payDate).toBe("2026-08-20");
+    expect(periodInfo("2026-08-H2", config).payDate).toBe("2026-09-05");
+  });
+
   it("shiftPeriod moves forward and backward across month/year boundaries", () => {
-    expect(shiftPeriod("2026-08-H1", 1)).toBe("2026-08-H2");
-    expect(shiftPeriod("2026-08-H2", 1)).toBe("2026-09-H1");
-    expect(shiftPeriod("2026-01-H1", -1)).toBe("2025-12-H2");
+    expect(shiftPeriod("2026-08-H1", 1, DEFAULT_PAYROLL_CONFIG)).toBe("2026-08-H2");
+    expect(shiftPeriod("2026-08-H2", 1, DEFAULT_PAYROLL_CONFIG)).toBe("2026-09-H1");
+    expect(shiftPeriod("2026-01-H1", -1, DEFAULT_PAYROLL_CONFIG)).toBe("2025-12-H2");
   });
 });
 
-describe("computePayroll", () => {
+describe("period helpers — MONTHLY", () => {
+  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, frequency: "MONTHLY", monthlyPayDay: 5 };
+
+  it("periodKeyFromDate returns the calendar month", () => {
+    expect(periodKeyFromDate("2026-08-17", config)).toBe("2026-08");
+  });
+
+  it("periodInfo covers the full calendar month, paid the configured day of the next month", () => {
+    const info = periodInfo("2026-08", config);
+    expect(info.startDate).toBe("2026-08-01");
+    expect(info.endDate).toBe("2026-08-31");
+    expect(info.payDate).toBe("2026-09-05");
+  });
+
+  it("shiftPeriod moves by whole months across a year boundary", () => {
+    expect(shiftPeriod("2026-12", 1, config)).toBe("2027-01");
+    expect(shiftPeriod("2027-01", -1, config)).toBe("2026-12");
+  });
+});
+
+describe("period helpers — WEEKLY", () => {
+  // payday = Friday (5)
+  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, frequency: "WEEKLY", weeklyPayWeekday: 5 };
+
+  it("periodKeyFromDate anchors every date in the block to that block's Friday", () => {
+    // 2026-08-14 is a Friday
+    expect(periodKeyFromDate("2026-08-14", config)).toBe("2026-08-14"); // Friday itself
+    expect(periodKeyFromDate("2026-08-10", config)).toBe("2026-08-14"); // Monday same week
+    expect(periodKeyFromDate("2026-08-15", config)).toBe("2026-08-21"); // Saturday rolls to next Friday
+  });
+
+  it("periodInfo covers the 7 days ending on the payday", () => {
+    const info = periodInfo("2026-08-14", config);
+    expect(info.startDate).toBe("2026-08-08");
+    expect(info.endDate).toBe("2026-08-14");
+    expect(info.payDate).toBe("2026-08-14");
+  });
+
+  it("shiftPeriod moves by exactly 7 days", () => {
+    expect(shiftPeriod("2026-08-14", 1, config)).toBe("2026-08-21");
+    expect(shiftPeriod("2026-08-14", -1, config)).toBe("2026-08-07");
+  });
+});
+
+describe("period helpers — DAILY", () => {
+  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, frequency: "DAILY" };
+
+  it("every date is its own period, paid the same day", () => {
+    expect(periodKeyFromDate("2026-08-14", config)).toBe("2026-08-14");
+    const info = periodInfo("2026-08-14", config);
+    expect(info.startDate).toBe("2026-08-14");
+    expect(info.endDate).toBe("2026-08-14");
+    expect(info.payDate).toBe("2026-08-14");
+  });
+
+  it("shiftPeriod moves by exactly 1 day", () => {
+    expect(shiftPeriod("2026-08-14", 1, config)).toBe("2026-08-15");
+    expect(shiftPeriod("2026-08-01", -1, config)).toBe("2026-07-31");
+  });
+});
+
+describe("computePayroll — SEMI_MONTHLY (default config)", () => {
   const emp: PayrollEmployee = {
     id: "e1",
-    baseSalary: 30000, // halfSalary = 15000, dailyRate = 1000
+    baseSalary: 30000, // periodSalary (H1/H2) = 15000, dailyRate = 1000
     workStart: "09:00",
     workEnd: "18:00",
     daysOff: [0], // Sunday
     hireDate: "2020-01-01", // hired long before any test period, so it never clamps anything below
   };
 
-  // on-time, no-absence attendance for every scheduled workday in a given "YYYY-MM",
-  // used so bonus-eligibility tests isolate the one condition under test
-  const fullMonthAttendance = (ym: string): AttendanceRecord[] => {
-    const [y, m] = ym.split("-").map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    const records: AttendanceRecord[] = [];
-    for (let d = 1; d <= lastDay; d++) {
-      const date = `${ym}-${String(d).padStart(2, "0")}`;
-      if (isWeeklyDayOff(emp, date)) continue;
-      records.push({ employeeId: emp.id, date, checkInTime: "09:00", lateMinutes: 0, deductionAmount: 0 });
-    }
-    return records;
-  };
-
-  it("pays half salary with no deductions/bonus on a clean H1 period", () => {
-    const p = computePayroll(emp, "2026-08-H1", [], [], [], 0, 0, "2026-08-15");
-    expect(p.halfSalary).toBe(15000);
+  it("pays half salary with no deductions on a clean H1 period", () => {
+    const p = computePayroll(emp, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-15");
+    expect(p.periodSalary).toBe(15000);
     expect(p.lateDeduction).toBe(0);
     expect(p.leaveDeduction).toBe(0);
-    expect(p.isPayoutHalf).toBe(false);
-    expect(p.bonus).toBe(0); // H1 never pays bonus regardless of eligibility
+    expect(p.socialSecurityDeduction).toBe(0);
+    expect(p.isCommissionPeriod).toBe(false);
     expect(p.commissionAmount).toBe(0); // commission ignored even if passed in on H1
+    expect(p.net).toBe(15000);
   });
 
   it("applies late deduction only from records within the period", () => {
@@ -338,93 +393,148 @@ describe("computePayroll", () => {
       { employeeId: "e1", date: "2026-08-03", checkInTime: "09:30", lateMinutes: 30, deductionAmount: 111.11 },
       { employeeId: "e1", date: "2026-08-20", checkInTime: "09:30", lateMinutes: 30, deductionAmount: 111.11 }, // outside H1
     ];
-    const p = computePayroll(emp, "2026-08-H1", attendance, [], [], 0, 0, "2026-08-15");
+    const p = computePayroll(emp, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, attendance, [], [], 0, 0, "2026-08-15");
     expect(p.lateCount).toBe(1);
     expect(p.lateDeduction).toBeCloseTo(111.11, 2);
   });
 
-  it("pays bonus and commission on H2 only when the whole month is clean", () => {
-    const attendance = fullMonthAttendance("2026-08");
-    const p = computePayroll(emp, "2026-08-H2", attendance, [], [], 0, 500, "2026-08-31");
-    expect(p.isPayoutHalf).toBe(true);
-    expect(p.bonusEligible).toBe(true);
-    expect(p.bonus).toBe(BONUS_AMOUNT);
-    expect(p.commissionAmount).toBe(500);
-  });
+  it("pays commission on H2 (the period covering the month's last day), not on H1", () => {
+    const p2 = computePayroll(emp, "2026-08-H2", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 500, "2026-08-31");
+    expect(p2.isCommissionPeriod).toBe(true);
+    expect(p2.commissionAmount).toBe(500);
 
-  it("withholds the bonus on H2 if there was any late check-in anywhere in the month", () => {
-    // start from a fully-clean month, then make exactly one day late
-    const attendance = fullMonthAttendance("2026-08").map((r) =>
-      r.date === "2026-08-03" ? { ...r, lateMinutes: 30, deductionAmount: 111.11 } : r
-    );
-    const p = computePayroll(emp, "2026-08-H2", attendance, [], [], 0, 0, "2026-08-31");
-    expect(p.bonusEligible).toBe(false);
-    expect(p.bonus).toBe(0);
-  });
-
-  it("withholds the bonus on H2 if there was any absence anywhere in the month, even in H1", () => {
-    // clean month except one missing check-in in the first half
-    const attendance = fullMonthAttendance("2026-08").filter((r) => r.date !== "2026-08-03");
-    const p = computePayroll(emp, "2026-08-H2", attendance, [], [], 0, 0, "2026-08-31");
-    expect(p.bonusEligible).toBe(false);
-    expect(p.bonus).toBe(0);
-  });
-
-  it("withholds the bonus on H2 if there was any approved leave anywhere in the month", () => {
-    const attendance = fullMonthAttendance("2026-08").filter((r) => r.date !== "2026-08-03");
-    const leaves: LeaveRecord[] = [
-      { employeeId: "e1", date: "2026-08-03", type: "VACATION", status: "APPROVED" },
-    ];
-    const p = computePayroll(emp, "2026-08-H2", attendance, [], leaves, 0, 0, "2026-08-31");
-    expect(p.bonusEligible).toBe(false);
-    expect(p.bonus).toBe(0);
-  });
-
-  it("does not let pre-hireDate days wrongly count as absences (mid-month hire, otherwise clean)", () => {
-    // hired Thu 2026-08-20; period H2 = Aug 16-31, but they weren't employed for the first 4 days.
-    // On-time attendance for every scheduled workday from hireDate onward, Sunday off.
-    const midMonthEmp: PayrollEmployee = { ...emp, hireDate: "2026-08-20" };
-    const workDays = [20, 21, 22, 24, 25, 26, 27, 28, 29, 31]; // excludes Sun 23 & 30 (day off)
-    const attendance: AttendanceRecord[] = workDays.map((d) => ({
-      employeeId: "e1",
-      date: `2026-08-${d}`,
-      checkInTime: "09:00",
-      lateMinutes: 0,
-      deductionAmount: 0,
-    }));
-    const p = computePayroll(midMonthEmp, "2026-08-H2", attendance, [], [], 0, 0, "2026-08-31");
-    expect(p.absenceCount).toBe(0); // Aug 16-19 must NOT count against them
-    expect(p.bonusEligible).toBe(true);
-    expect(p.bonus).toBe(BONUS_AMOUNT);
+    const p1 = computePayroll(emp, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 500, "2026-08-15");
+    expect(p1.isCommissionPeriod).toBe(false);
+    expect(p1.commissionAmount).toBe(0);
   });
 
   it("pro-rates half salary for an employee hired mid-period (started day 2 of a 15-day H1)", () => {
     // hired 2026-08-02: employed for 14 of the 15 days in H1 (Aug 1-15) -> 14/15 of half salary
     const midHireEmp: PayrollEmployee = { ...emp, hireDate: "2026-08-02" };
-    const p = computePayroll(midHireEmp, "2026-08-H1", [], [], [], 0, 0, "2026-08-15");
+    const p = computePayroll(midHireEmp, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-15");
     expect(p.periodDays).toBe(15);
     expect(p.employedDays).toBe(14);
-    expect(p.halfSalary).toBeCloseTo(15000 * (14 / 15), 5);
+    expect(p.periodSalary).toBeCloseTo(15000 * (14 / 15), 5);
   });
 
   it("pays zero half salary for a period entirely before the employee was hired", () => {
     const notYetHired: PayrollEmployee = { ...emp, hireDate: "2026-09-01" };
-    const p = computePayroll(notYetHired, "2026-08-H2", [], [], [], 0, 0, "2026-08-31");
+    const p = computePayroll(notYetHired, "2026-08-H2", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-31");
     expect(p.employedDays).toBe(0);
-    expect(p.halfSalary).toBe(0);
+    expect(p.periodSalary).toBe(0);
   });
 
   it("pays the full flat half salary when hireDate is on or before the period start (unchanged behavior)", () => {
     const hiredOnPeriodStart: PayrollEmployee = { ...emp, hireDate: "2026-08-01" };
-    const p = computePayroll(hiredOnPeriodStart, "2026-08-H1", [], [], [], 0, 0, "2026-08-15");
+    const p = computePayroll(hiredOnPeriodStart, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-15");
     expect(p.employedDays).toBe(p.periodDays);
-    expect(p.halfSalary).toBe(15000);
+    expect(p.periodSalary).toBe(15000);
   });
 
-  it("subtracts advances and adds commission/bonus into the net total", () => {
-    const attendance = fullMonthAttendance("2026-08");
-    const p = computePayroll(emp, "2026-08-H2", attendance, [], [], 200, 300, "2026-08-31");
-    // 15000 - 0 - 0 - 200 + 300 + 1500(bonus)
-    expect(p.net).toBeCloseTo(15000 - 200 + 300 + BONUS_AMOUNT, 5);
+  it("subtracts advances and adds commission into the net total", () => {
+    const p = computePayroll(emp, "2026-08-H2", DEFAULT_PAYROLL_CONFIG, [], [], [], 200, 300, "2026-08-31");
+    // 15000 - 0 - 0 - 0(SS) - 200 + 300
+    expect(p.net).toBeCloseTo(15000 - 200 + 300, 5);
+  });
+});
+
+describe("computePayroll — social security deduction", () => {
+  const emp: PayrollEmployee = {
+    id: "e1",
+    baseSalary: 30000,
+    workStart: "09:00",
+    workEnd: "18:00",
+    daysOff: [0],
+    hireDate: "2020-01-01",
+    socialSecurityRate: 5, // 5%
+  };
+
+  it("deducts a percentage of the period's gross pay", () => {
+    const p = computePayroll(emp, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-15");
+    // periodSalary 15000 * 5% = 750
+    expect(p.socialSecurityDeduction).toBe(750);
+    expect(p.net).toBe(15000 - 750);
+  });
+
+  it("defaults to 0 when the employee has no rate set", () => {
+    const noRate: PayrollEmployee = { ...emp, socialSecurityRate: undefined };
+    const p = computePayroll(noRate, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-15");
+    expect(p.socialSecurityDeduction).toBe(0);
+  });
+
+  it("scales down proportionally for a pro-rated mid-period hire", () => {
+    const midHire: PayrollEmployee = { ...emp, hireDate: "2026-08-02" };
+    const p = computePayroll(midHire, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-15");
+    // periodSalary = 15000 * 14/15 = 14000, SS = 5% of that = 700
+    expect(p.socialSecurityDeduction).toBeCloseTo(700, 5);
+  });
+});
+
+describe("computePayroll — MONTHLY frequency", () => {
+  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, frequency: "MONTHLY", monthlyPayDay: 1 };
+  const emp: PayrollEmployee = {
+    id: "e1",
+    baseSalary: 30000,
+    workStart: "09:00",
+    workEnd: "18:00",
+    daysOff: [0],
+    hireDate: "2020-01-01",
+  };
+
+  it("pays the full flat monthly salary with no deductions", () => {
+    const p = computePayroll(emp, "2026-08", config, [], [], [], 0, 0, "2026-08-31");
+    expect(p.periodSalary).toBe(30000);
+    expect(p.isCommissionPeriod).toBe(true); // the only period in the month always covers month-end
+    expect(p.net).toBe(30000);
+  });
+
+  it("pro-rates for a mid-month hire", () => {
+    const midHire: PayrollEmployee = { ...emp, hireDate: "2026-08-16" }; // 16 of 31 days employed
+    const p = computePayroll(midHire, "2026-08", config, [], [], [], 0, 0, "2026-08-31");
+    expect(p.periodDays).toBe(31);
+    expect(p.employedDays).toBe(16);
+    expect(p.periodSalary).toBeCloseTo(30000 * (16 / 31), 5);
+  });
+});
+
+describe("computePayroll — WEEKLY frequency", () => {
+  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, frequency: "WEEKLY", weeklyPayWeekday: 5 };
+  const emp: PayrollEmployee = {
+    id: "e1",
+    baseSalary: 30000, // dailyRate = 1000, so a full 7-day week = 7000
+    workStart: "09:00",
+    workEnd: "18:00",
+    daysOff: [0],
+    hireDate: "2020-01-01",
+  };
+
+  it("pays 7x the daily rate for a full week", () => {
+    const p = computePayroll(emp, "2026-08-14", config, [], [], [], 0, 0, "2026-08-14");
+    expect(p.periodDays).toBe(7);
+    expect(p.periodSalary).toBe(7000);
+  });
+});
+
+describe("computePayroll — DAILY frequency", () => {
+  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, frequency: "DAILY" };
+  const emp: PayrollEmployee = {
+    id: "e1",
+    baseSalary: 30000, // dailyRate = 1000
+    workStart: "09:00",
+    workEnd: "18:00",
+    daysOff: [0],
+    hireDate: "2020-01-01",
+  };
+
+  it("pays exactly one day's rate", () => {
+    const p = computePayroll(emp, "2026-08-14", config, [], [], [], 0, 0, "2026-08-14");
+    expect(p.periodDays).toBe(1);
+    expect(p.periodSalary).toBe(1000);
+  });
+
+  it("pays zero for a day before the employee was hired", () => {
+    const notYetHired: PayrollEmployee = { ...emp, hireDate: "2026-09-01" };
+    const p = computePayroll(notYetHired, "2026-08-14", config, [], [], [], 0, 0, "2026-08-14");
+    expect(p.periodSalary).toBe(0);
   });
 });

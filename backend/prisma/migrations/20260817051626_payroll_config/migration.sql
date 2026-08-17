@@ -1,0 +1,10 @@
+-- AlterTable
+ALTER TABLE "Organization" ADD COLUMN     "monthlyPayDay" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "payFrequency" TEXT NOT NULL DEFAULT 'SEMI_MONTHLY',
+ADD COLUMN     "semiMonthlyPayDay1" INTEGER NOT NULL DEFAULT 16,
+ADD COLUMN     "semiMonthlyPayDay2" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "weeklyPayWeekday" INTEGER NOT NULL DEFAULT 5;
+
+-- AlterTable
+ALTER TABLE "Employee" ADD COLUMN     "socialSecurityRate" DECIMAL(5,2) NOT NULL DEFAULT 0;
+

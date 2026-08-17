@@ -1,31 +1,41 @@
 import { Employee } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { toPayrollEmployee } from "../lib/serialize";
-import { computePayroll, periodInfo, PayrollBreakdown } from "../lib/payroll";
+import { computePayroll, periodInfo, PayrollBreakdown, PayrollConfig } from "../lib/payroll";
 import { todayStrBangkok } from "../lib/thaiTime";
 
-// Assembles everything computePayroll needs for one employee + period, scoped to the
-// calendar month the period falls in (bonus eligibility is judged over the whole month).
+// Assembles everything computePayroll needs for one employee + period, under the
+// organization's configured pay frequency. Attendance/holiday/leave are scoped to the
+// period's actual date range (not a calendar month) since a WEEKLY period can straddle two
+// months — only the once-a-month Commission lookup still uses info.ym.
 export const getPayrollForEmployee = async (
+  config: PayrollConfig,
   emp: Employee,
   periodKey: string
 ): Promise<PayrollBreakdown> => {
-  const info = periodInfo(periodKey);
+  const info = periodInfo(periodKey, config);
 
   const [attendance, holidays, leaves, advance, commission, swaps] = await Promise.all([
-    prisma.attendance.findMany({ where: { employeeId: emp.id, date: { startsWith: info.ym } } }),
-    prisma.holiday.findMany({ where: { organizationId: emp.organizationId, date: { startsWith: info.ym } } }),
-    prisma.leave.findMany({ where: { employeeId: emp.id, status: "APPROVED", date: { startsWith: info.ym } } }),
+    prisma.attendance.findMany({
+      where: { employeeId: emp.id, date: { gte: info.startDate, lte: info.endDate } },
+    }),
+    prisma.holiday.findMany({
+      where: { organizationId: emp.organizationId, date: { gte: info.startDate, lte: info.endDate } },
+    }),
+    prisma.leave.findMany({
+      where: { employeeId: emp.id, status: "APPROVED", date: { gte: info.startDate, lte: info.endDate } },
+    }),
     prisma.advance.findUnique({ where: { employeeId_periodKey: { employeeId: emp.id, periodKey } } }),
     prisma.commission.findUnique({ where: { employeeId_yearMonth: { employeeId: emp.id, yearMonth: info.ym } } }),
-    // approved swaps can straddle a month boundary (originalOffDate/swappedToDate on either
-    // side), so this is intentionally NOT scoped to info.ym like the other queries above
+    // approved swaps can straddle a period boundary (originalOffDate/swappedToDate on either
+    // side), so this is intentionally NOT scoped to the period's date range like the others
     prisma.dayOffSwapRequest.findMany({ where: { employeeId: emp.id, status: "APPROVED" } }),
   ]);
 
   return computePayroll(
     toPayrollEmployee(emp),
     periodKey,
+    config,
     attendance.map((a) => ({
       employeeId: a.employeeId,
       date: a.date,

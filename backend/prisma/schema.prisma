@@ -17,6 +17,15 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Payroll cadence — every business pays on its own schedule, so this was pulled out of
+  // hardcoded "1st/16th of the month" (bxs-bar's rule) into an org-level setting. Only the
+  // fields relevant to the chosen payFrequency are used; the rest sit at their default.
+  payFrequency       String @default("SEMI_MONTHLY") // DAILY | WEEKLY | MONTHLY | SEMI_MONTHLY
+  weeklyPayWeekday   Int    @default(5) // 0 (Sun) - 6 (Sat) — payday when payFrequency=WEEKLY
+  monthlyPayDay      Int    @default(1) // 1-28 — payday (of the following month) when payFrequency=MONTHLY
+  semiMonthlyPayDay1 Int    @default(16) // payday for the 1st-15th period when payFrequency=SEMI_MONTHLY
+  semiMonthlyPayDay2 Int    @default(1) // payday (of the following month) for the 16th-end period
+
   admins             Admin[]
   employees          Employee[]
   attendance         Attendance[]
@@ -59,6 +68,7 @@ model Employee {
   passwordHash String
   active       Boolean  @default(true)
   dutyRotationEnabled Boolean @default(false) // opts this employee into the random daily cleaning-duty rotation at check-in (previously hardcoded to position === "เสิร์ฟ")
+  socialSecurityRate Decimal @default(0) @db.Decimal(5, 2) // % deducted from this employee's gross pay each period (0 = no deduction). Percent of that period's pay, not a flat monthly figure.
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -10,6 +10,7 @@ export interface Employee {
   username: string;
   active: boolean;
   dutyRotationEnabled: boolean;
+  socialSecurityRate: number;
   createdAt: string;
 }
 
@@ -89,9 +90,7 @@ export interface Holiday {
 }
 
 export interface PeriodInfo {
-  y: number;
-  m: number;
-  half: "H1" | "H2";
+  periodKey: string;
   startDate: string;
   endDate: string;
   payDate: string;
@@ -100,7 +99,7 @@ export interface PeriodInfo {
 
 export interface PayrollBreakdown {
   info: PeriodInfo;
-  halfSalary: number;
+  periodSalary: number;
   periodDays: number;
   employedDays: number;
   lateCount: number;
@@ -108,14 +107,10 @@ export interface PayrollBreakdown {
   leaveCount: number;
   leaveDeduction: number;
   absenceCount: number;
-  monthLateCount: number;
-  monthLeaveCount: number;
-  monthAbsenceCount: number;
+  socialSecurityDeduction: number;
   advanceAmount: number;
   commissionAmount: number;
-  bonus: number;
-  bonusEligible: boolean;
-  isPayoutHalf: boolean;
+  isCommissionPeriod: boolean;
   net: number;
 }
 

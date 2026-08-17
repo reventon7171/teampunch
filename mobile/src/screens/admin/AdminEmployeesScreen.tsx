@@ -30,6 +30,7 @@ const emptyForm: EmployeeInput = {
   daysOff: [],
   hireDate: todayStr(),
   dutyRotationEnabled: false,
+  socialSecurityRate: 0,
   username: "",
   password: "",
 };
@@ -59,6 +60,7 @@ export function AdminEmployeesScreen() {
       daysOff: emp.daysOff,
       hireDate: emp.hireDate ?? todayStr(),
       dutyRotationEnabled: emp.dutyRotationEnabled,
+      socialSecurityRate: emp.socialSecurityRate,
       username: emp.username,
       password: "",
     });
@@ -183,6 +185,13 @@ export function AdminEmployeesScreen() {
             onChangeText={(v) => setForm({ ...form, baseSalary: Number(v.replace(/[^0-9.]/g, "")) || 0 })}
             keyboardType="numeric"
           />
+          <TextField
+            label="หักประกันสังคม (% ของเงินเดือนแต่ละงวด)"
+            value={form.socialSecurityRate ? String(form.socialSecurityRate) : ""}
+            onChangeText={(v) => setForm({ ...form, socialSecurityRate: Number(v.replace(/[^0-9.]/g, "")) || 0 })}
+            keyboardType="numeric"
+            placeholder="0"
+          />
           <TextField label="Username" value={form.username} onChangeText={(v) => setForm({ ...form, username: v })} autoCapitalize="none" />
           <TextField
             label={editingId ? "Password (เว้นว่างไว้ถ้าไม่เปลี่ยน)" : "Password"}
@@ -242,6 +251,9 @@ export function AdminEmployeesScreen() {
               </Text>
               <Text style={styles.empDetail}>Username: {emp.username}</Text>
               {emp.dutyRotationEnabled && <Text style={styles.empDetail}>🧹 รับหน้าที่ประจำวันแบบสุ่ม</Text>}
+              {emp.socialSecurityRate > 0 && (
+                <Text style={styles.empDetail}>หักประกันสังคม {emp.socialSecurityRate}% ของเงินเดือนแต่ละงวด</Text>
+              )}
             </View>
           </View>
 

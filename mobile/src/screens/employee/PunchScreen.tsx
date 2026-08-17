@@ -12,6 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 import { checkIn, getTodayStatus, PunchPhoto } from "../../api/attendance";
 import { getMyPayroll } from "../../api/payroll";
 import { periodKeyFromDate, todayStr } from "../../utils/period";
+import { usePayrollConfig } from "../../hooks/usePayrollConfig";
 import { colors, fontSize, radius, spacing } from "../../theme";
 
 function useClock() {
@@ -36,10 +37,12 @@ export function PunchScreen() {
   const [dutyPopup, setDutyPopup] = useState<string | null>(null);
   const stampRef = useRef<StampedCaptureHandle>(null);
 
+  const payrollConfig = usePayrollConfig();
   const todayQuery = useQuery({ queryKey: ["today"], queryFn: getTodayStatus });
+  const currentPeriodKey = periodKeyFromDate(todayStr(), payrollConfig);
   const payrollQuery = useQuery({
-    queryKey: ["myPayroll", periodKeyFromDate(todayStr())],
-    queryFn: () => getMyPayroll(periodKeyFromDate(todayStr())),
+    queryKey: ["myPayroll", currentPeriodKey],
+    queryFn: () => getMyPayroll(currentPeriodKey),
   });
 
   const resetCapture = () => {
@@ -102,7 +105,6 @@ export function PunchScreen() {
   const canCheckIn = !isOffToday && !alreadyCheckedIn;
 
   const p = payrollQuery.data;
-  const cleanMonth = !!p && p.monthLateCount === 0 && p.monthLeaveCount === 0 && p.monthAbsenceCount === 0;
 
   return (
     <View style={styles.root}>
@@ -205,19 +207,12 @@ export function PunchScreen() {
 
         {p && (
           <>
-            <Text style={styles.statsHeading}>สถิติเดือนนี้</Text>
+            <Text style={styles.statsHeading}>สถิติงวดนี้</Text>
             <View style={styles.statsGrid}>
-              <StatCard label="ขาด" value={p.monthAbsenceCount} />
-              <StatCard label="ลา" value={p.monthLeaveCount} />
-              <StatCard label="สาย" value={p.monthLateCount} />
+              <StatCard label="ขาด" value={p.absenceCount} />
+              <StatCard label="ลา" value={p.leaveCount} />
+              <StatCard label="สาย" value={p.lateCount} />
             </View>
-
-            {cleanMonth && (
-              <View style={styles.bonusBanner}>
-                <Text style={styles.bonusIcon}>🎉</Text>
-                <Text style={styles.bonusText}>ยังไม่สายเลยเดือนนี้ — โบนัสอยู่ใกล้แค่เอื้อม!</Text>
-              </View>
-            )}
           </>
         )}
       </View>
@@ -364,14 +359,4 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: fontSize.xs, color: colors.creamInkMuted, marginBottom: spacing.xs },
   statValue: { fontSize: fontSize.xl, fontWeight: "700", color: colors.creamInk },
-  bonusBanner: {
-    backgroundColor: colors.navy,
-    borderRadius: radius.md * 2,
-    padding: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  bonusIcon: { fontSize: 20 },
-  bonusText: { flex: 1, fontSize: fontSize.sm, fontWeight: "600", color: colors.white },
 });

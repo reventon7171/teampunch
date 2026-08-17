@@ -1,19 +1,21 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { colors, fontSize, spacing } from "../theme";
-import { periodKeyFromDate, periodLabel, shiftPeriod, todayStr } from "../utils/period";
+import { periodKeyFromDate, periodLabel, shiftPeriod, todayStr, PayrollConfig } from "../utils/period";
 import { Button } from "./Button";
 
 export function PeriodSwitcher({
   periodKey,
+  config,
   onChange,
   extraNote,
 }: {
   periodKey: string;
+  config: PayrollConfig;
   onChange: (next: string) => void;
   extraNote?: string;
 }) {
-  const label = periodLabel(periodKey);
+  const label = periodLabel(periodKey, config);
   return (
     <View style={styles.wrap}>
       <View>
@@ -22,9 +24,9 @@ export function PeriodSwitcher({
         {extraNote && <Text style={styles.note}>{extraNote}</Text>}
       </View>
       <View style={styles.buttons}>
-        <Button title="‹ ก่อน" variant="ghost" onPress={() => onChange(shiftPeriod(periodKey, -1))} />
-        <Button title="ปัจจุบัน" variant="ghost" onPress={() => onChange(periodKeyFromDate(todayStr()))} />
-        <Button title="ถัดไป ›" variant="ghost" onPress={() => onChange(shiftPeriod(periodKey, 1))} />
+        <Button title="‹ ก่อน" variant="ghost" onPress={() => onChange(shiftPeriod(periodKey, -1, config))} />
+        <Button title="ปัจจุบัน" variant="ghost" onPress={() => onChange(periodKeyFromDate(todayStr(), config))} />
+        <Button title="ถัดไป ›" variant="ghost" onPress={() => onChange(shiftPeriod(periodKey, 1, config))} />
       </View>
     </View>
   );

@@ -8,18 +8,18 @@ import { TextField } from "../../components/TextField";
 import { Tag } from "../../components/Tag";
 import { getAllPayroll, setAdvance, setCommission } from "../../api/payroll";
 import { periodInfo, periodKeyFromDate, todayStr } from "../../utils/period";
+import { usePayrollConfig } from "../../hooks/usePayrollConfig";
 import { formatMoney } from "../../utils/format";
 import { colors, fontSize, spacing } from "../../theme";
-import { BONUS_AMOUNT } from "../../utils/constants";
 
 export function AdminPayrollScreen() {
-  const [periodKey, setPeriodKey] = useState(periodKeyFromDate(todayStr()));
+  const config = usePayrollConfig();
+  const [periodKey, setPeriodKey] = useState(periodKeyFromDate(todayStr(), config));
   const qc = useQueryClient();
   const { data: rows, isLoading } = useQuery({
     queryKey: ["adminPayroll", periodKey],
     queryFn: () => getAllPayroll(periodKey),
   });
-  const info = periodInfo(periodKey);
 
   const advanceMutation = useMutation({
     mutationFn: ({ employeeId, amount }: { employeeId: string; amount: number }) =>
@@ -27,6 +27,7 @@ export function AdminPayrollScreen() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["adminPayroll", periodKey] }),
   });
 
+  const info = periodInfo(periodKey, config);
   const commissionMutation = useMutation({
     mutationFn: ({ employeeId, amount }: { employeeId: string; amount: number }) =>
       setCommission(employeeId, info.ym, amount),
@@ -39,12 +40,9 @@ export function AdminPayrollScreen() {
       <Card>
         <PeriodSwitcher
           periodKey={periodKey}
+          config={config}
           onChange={setPeriodKey}
-          extraNote={
-            info.half === "H1"
-              ? "จ่ายครึ่งเดือนแรก ไม่มีโบนัส/คอมมิชชั่น"
-              : `จ่ายครึ่งเดือนหลัง รวมโบนัส/คอมมิชชั่นของทั้งเดือน · สาย/ลา/ขาดในเดือนนี้ = ไม่ได้โบนัส ${formatMoney(BONUS_AMOUNT)} บาท`
-          }
+          extraNote="ค่าคอมมิชชั่นตั้งได้เดือนละครั้ง จะจ่ายรวมในงวดที่ครอบคลุมวันสิ้นเดือน"
         />
       </Card>
 
@@ -61,7 +59,7 @@ export function AdminPayrollScreen() {
             <Tag tone={p.absenceCount > 0 ? "late" : "ontime"} label={`ขาด ${p.absenceCount}`} />
           </View>
 
-          <Row label="เงินเดือนครึ่งงวด" value={formatMoney(p.halfSalary)} />
+          <Row label="เงินเดือนงวดนี้" value={formatMoney(p.periodSalary)} />
           {p.employedDays < p.periodDays && (
             <Text style={styles.note}>
               เริ่มงานกลางงวด — คิดตามวันที่ทำงานจริง {p.employedDays}/{p.periodDays} วัน
@@ -69,6 +67,7 @@ export function AdminPayrollScreen() {
           )}
           <Row label="หักสาย" value={formatMoney(p.lateDeduction)} />
           <Row label="หักลา" value={formatMoney(p.leaveDeduction)} />
+          {p.socialSecurityDeduction > 0 && <Row label="หักประกันสังคม" value={formatMoney(p.socialSecurityDeduction)} />}
 
           <TextField
             label="หักเบิกล่วงหน้า (บาท)"
@@ -80,7 +79,7 @@ export function AdminPayrollScreen() {
             }
           />
 
-          {p.isPayoutHalf ? (
+          {p.isCommissionPeriod ? (
             <TextField
               label="ค่าคอมมิชชั่น (บาท)"
               keyboardType="numeric"
@@ -91,11 +90,7 @@ export function AdminPayrollScreen() {
               }
             />
           ) : (
-            <Text style={styles.note}>คอมมิชชั่น/โบนัส: จ่ายวันที่ 1 (งวดหน้า)</Text>
-          )}
-
-          {p.isPayoutHalf && (
-            <Row label="โบนัส" value={p.bonusEligible ? formatMoney(p.bonus) : "0.00"} highlight={p.bonusEligible} />
+            <Text style={styles.note}>ค่าคอมมิชชั่น: จ่ายรวมในงวดที่ครอบคลุมวันสิ้นเดือน</Text>
           )}
 
           <View style={styles.netRow}>

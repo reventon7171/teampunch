@@ -6,7 +6,7 @@ import { periodQuerySchema, setAdvanceSchema, setCommissionSchema } from "../val
 import { getPayrollForEmployee } from "../services/payrollService";
 import { periodKeyFromDate } from "../lib/payroll";
 import { todayStrBangkok } from "../lib/thaiTime";
-import { serializeAdvance, serializeCommission } from "../lib/serialize";
+import { serializeAdvance, serializeCommission, toPayrollConfig } from "../lib/serialize";
 import { notFound } from "../lib/errors";
 
 const router = Router();
@@ -16,13 +16,16 @@ router.get(
   "/me",
   requireRole("employee"),
   asyncHandler(async (req, res) => {
-    const { period } = periodQuerySchema.parse(req.query);
-    const periodKey = period ?? periodKeyFromDate(todayStrBangkok());
-    const emp = await prisma.employee.findFirst({
-      where: { id: req.user!.id, organizationId: req.user!.organizationId },
-    });
+    const organizationId = req.user!.organizationId;
+    const [org, emp] = await Promise.all([
+      prisma.organization.findUniqueOrThrow({ where: { id: organizationId } }),
+      prisma.employee.findFirst({ where: { id: req.user!.id, organizationId } }),
+    ]);
     if (!emp) throw notFound("พนักงาน");
-    const breakdown = await getPayrollForEmployee(emp, periodKey);
+    const config = toPayrollConfig(org);
+    const { period } = periodQuerySchema.parse(req.query);
+    const periodKey = period ?? periodKeyFromDate(todayStrBangkok(), config);
+    const breakdown = await getPayrollForEmployee(config, emp, periodKey);
     res.json(breakdown);
   })
 );
@@ -31,18 +34,20 @@ router.get(
   "/",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
+    const organizationId = req.user!.organizationId;
+    const [org, employees] = await Promise.all([
+      prisma.organization.findUniqueOrThrow({ where: { id: organizationId } }),
+      prisma.employee.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } }),
+    ]);
+    const config = toPayrollConfig(org);
     const { period } = periodQuerySchema.parse(req.query);
-    const periodKey = period ?? periodKeyFromDate(todayStrBangkok());
-    const employees = await prisma.employee.findMany({
-      where: { organizationId: req.user!.organizationId },
-      orderBy: { createdAt: "asc" },
-    });
+    const periodKey = period ?? periodKeyFromDate(todayStrBangkok(), config);
     const rows = await Promise.all(
       employees.map(async (emp) => ({
         employeeId: emp.id,
         name: emp.name,
         position: emp.position,
-        ...(await getPayrollForEmployee(emp, periodKey)),
+        ...(await getPayrollForEmployee(config, emp, periodKey)),
       }))
     );
     res.json(rows);

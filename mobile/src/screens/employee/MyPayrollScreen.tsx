@@ -4,35 +4,35 @@ import { useQuery } from "@tanstack/react-query";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
 import { PeriodSwitcher } from "../../components/PeriodSwitcher";
-import { Tag } from "../../components/Tag";
 import { getMyPayroll } from "../../api/payroll";
 import { getMyAttendance } from "../../api/attendance";
-import { periodInfo, periodKeyFromDate, todayStr } from "../../utils/period";
+import { periodKeyFromDate, todayStr } from "../../utils/period";
+import { usePayrollConfig } from "../../hooks/usePayrollConfig";
 import { formatMoney, formatThaiDate } from "../../utils/format";
 import { colors, fontSize, radius, spacing } from "../../theme";
 
 export function MyPayrollScreen() {
-  const [periodKey, setPeriodKey] = useState(periodKeyFromDate(todayStr()));
+  const config = usePayrollConfig();
+  const [periodKey, setPeriodKey] = useState(periodKeyFromDate(todayStr(), config));
   const { data: p, isLoading } = useQuery({
     queryKey: ["myPayroll", periodKey],
     queryFn: () => getMyPayroll(periodKey),
   });
   const { data: attendance } = useQuery({ queryKey: ["myAttendance"], queryFn: getMyAttendance });
 
-  const info = periodInfo(periodKey);
   const lateDays = (attendance ?? [])
-    .filter((r) => r.date >= info.startDate && r.date <= info.endDate && r.lateMinutes >= 1)
+    .filter((r) => p && r.date >= p.info.startDate && r.date <= p.info.endDate && r.lateMinutes >= 1)
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 
   return (
     <Screen>
       <Text style={styles.h1}>เงินเดือนของฉัน</Text>
       <Card>
-        <PeriodSwitcher periodKey={periodKey} onChange={setPeriodKey} />
+        <PeriodSwitcher periodKey={periodKey} config={config} onChange={setPeriodKey} />
         {isLoading && <ActivityIndicator color={colors.navy} />}
         {p && (
           <View>
-            <Row label="เงินเดือนครึ่งงวด" value={`${formatMoney(p.halfSalary)} บาท`} />
+            <Row label="เงินเดือนงวดนี้" value={`${formatMoney(p.periodSalary)} บาท`} />
             {p.employedDays < p.periodDays && (
               <Text style={styles.note}>
                 เริ่มงานกลางงวด — คิดตามวันที่ทำงานจริง {p.employedDays}/{p.periodDays} วัน
@@ -56,22 +56,15 @@ export function MyPayrollScreen() {
               value={`หัก ${formatMoney(p.leaveDeduction)} บาท`}
               negative={p.leaveDeduction > 0}
             />
+            {p.socialSecurityDeduction > 0 && (
+              <Row label="หักประกันสังคม" value={`หัก ${formatMoney(p.socialSecurityDeduction)} บาท`} negative />
+            )}
             <Row label="หักเบิกล่วงหน้า" value={`${formatMoney(p.advanceAmount)} บาท`} negative={p.advanceAmount > 0} />
 
-            {p.isPayoutHalf ? (
-              <>
-                <Row label="ค่าคอมมิชชั่น" value={`+${formatMoney(p.commissionAmount)} บาท`} />
-                <View style={styles.bonusRow}>
-                  <Text style={styles.rowLabel}>โบนัส (ไม่สาย/ไม่ลา/ไม่ขาดทั้งเดือน)</Text>
-                  {p.bonusEligible ? (
-                    <Tag tone="ontime" label={`ได้รับ ${formatMoney(p.bonus)} บาท`} />
-                  ) : (
-                    <Tag tone="late" label="ไม่ได้รับเดือนนี้" />
-                  )}
-                </View>
-              </>
+            {p.isCommissionPeriod ? (
+              <Row label="ค่าคอมมิชชั่น" value={`+${formatMoney(p.commissionAmount)} บาท`} />
             ) : (
-              <Text style={styles.note}>งวดนี้ไม่มีโบนัส/ค่าคอมมิชชั่น (จะรวมจ่ายพร้อมงวดวันที่ 1 เดือนถัดไป)</Text>
+              <Text style={styles.note}>งวดนี้ไม่มีค่าคอมมิชชั่น (จะรวมจ่ายในงวดที่ครอบคลุมวันสิ้นเดือน)</Text>
             )}
 
             <View style={styles.netRow}>
@@ -110,7 +103,6 @@ const styles = StyleSheet.create({
   lateRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
   lateDate: { fontSize: fontSize.sm, color: colors.red, fontWeight: "700" },
   lateHours: { fontSize: fontSize.sm, color: colors.red, flexShrink: 1, textAlign: "right" },
-  bonusRow: { paddingVertical: spacing.sm, gap: spacing.xs },
   note: { fontSize: fontSize.sm, color: colors.inkSoft, marginTop: spacing.sm },
   netRow: {
     flexDirection: "row",
