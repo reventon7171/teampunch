@@ -71,6 +71,7 @@ git push
    - Backend: `GET /api/billing` (แอดมินเท่านั้น, read-only) คืนค่า plan/subscriptionStatus/isLifetimeFree — ยังไม่มี endpoint แก้ไข เพราะยังไม่ต่อ payment gateway
    - Mobile: การ์ด "แพ็กเกจการใช้งาน" ในหน้าตั้งค่าแอดมิน แสดงสถานะเฉยๆ (ยังไม่มีปุ่มอัปเกรด/ชำระเงิน)
    - **ยังไม่เชื่อม Omise/Opn Payments จริง** — เป็นแค่โครงสร้างข้อมูล + UI เปล่าๆ รอวันเปิดใช้งาน ดูหัวข้อ 7 สำหรับแผนต่อ
+   - `isLifetimeFree` default = `true` ในระดับ schema ด้วย (ไม่ใช่แค่ backfill ตอน migration) เพราะตอนนี้ยังอยู่ช่วงส่งให้เพื่อนๆ ทดลองใช้ก่อนเปิดตัวจริง สมัครใหม่กี่ org ก็ยังฟรีถาวรหมดจนกว่าจะพร้อมเปิดระบบเก็บเงินจริง — **ตอนพร้อมเปิดบิลลิ่งจริง ต้องเปลี่ยน default นี้กลับเป็น `false`** ก่อน (แก้ที่ `backend/prisma/schema.prisma` แล้ว generate migration ใหม่ด้วยขั้นตอนในหัวข้อ 8)
 
 Unit test ของ payroll engine: **76 ข้อ ผ่านหมด** (`backend/src/lib/payroll.test.ts`) — เป็นจุดที่ business logic ซับซ้อนที่สุดของระบบ ถ้าจะแก้อะไรเกี่ยวกับเงินเดือนอีก ให้รันเทสต์นี้ก่อน/หลังเสมอ
 

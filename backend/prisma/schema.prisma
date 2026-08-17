@@ -50,7 +50,10 @@ model Organization {
   // friends-and-family orgs can be marked the same way by hand in the database.
   plan               String   @default("free") // free | paid (no other tiers yet)
   subscriptionStatus String   @default("active") // active | past_due | canceled — unused until a gateway exists
-  isLifetimeFree     Boolean  @default(false)
+  // Defaults to true while the app is still only going out to friends pre-launch — nobody
+  // should hit a paywall before billing actually exists. Flip this default to false once
+  // real billing is ready to launch and new signups should start on a real plan.
+  isLifetimeFree     Boolean  @default(true)
 
   admins             Admin[]
   employees          Employee[]
