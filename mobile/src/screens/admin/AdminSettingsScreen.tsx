@@ -30,6 +30,7 @@ export function AdminSettingsScreen() {
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [error, setError] = useState("");
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () => changeAdminPassword(currentPw, newPw),
@@ -37,6 +38,7 @@ export function AdminSettingsScreen() {
       setCurrentPw("");
       setNewPw("");
       setError("");
+      setShowChangePassword(false);
       Alert.alert("สำเร็จ", "เปลี่ยนรหัสผ่านแอดมินเรียบร้อยแล้ว");
     },
     onError: (e) => setError(e instanceof Error ? e.message : "เปลี่ยนรหัสผ่านไม่สำเร็จ"),
@@ -126,17 +128,35 @@ export function AdminSettingsScreen() {
       <Text style={styles.sub}>เข้าสู่ระบบเป็น {session?.role === "admin" ? session.username : ""}</Text>
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <Card>
-        <TextField label="รหัสผ่านเดิม" value={currentPw} onChangeText={setCurrentPw} secureTextEntry />
-        <TextField label="รหัสผ่านแอดมินใหม่" value={newPw} onChangeText={setNewPw} secureTextEntry />
-        <Button
-          title="บันทึกรหัสผ่านใหม่"
-          variant="green"
-          onPress={() => mutation.mutate()}
-          disabled={!currentPw || !newPw}
-          loading={mutation.isPending}
-        />
-      </Card>
+      {!showChangePassword ? (
+        <Pressable onPress={() => setShowChangePassword(true)} style={styles.linkButton}>
+          <Text style={styles.linkButtonText}>เปลี่ยนรหัสผ่าน</Text>
+        </Pressable>
+      ) : (
+        <Card>
+          <TextField label="รหัสผ่านเดิม" value={currentPw} onChangeText={setCurrentPw} secureTextEntry />
+          <TextField label="รหัสผ่านแอดมินใหม่" value={newPw} onChangeText={setNewPw} secureTextEntry />
+          <View style={styles.actionsRow}>
+            <Button
+              title="บันทึกรหัสผ่านใหม่"
+              variant="green"
+              onPress={() => mutation.mutate()}
+              disabled={!currentPw || !newPw}
+              loading={mutation.isPending}
+            />
+            <Button
+              title="ยกเลิก"
+              variant="ghost"
+              onPress={() => {
+                setShowChangePassword(false);
+                setCurrentPw("");
+                setNewPw("");
+                setError("");
+              }}
+            />
+          </View>
+        </Card>
+      )}
 
       <Card>
         <Text style={styles.cardTitle}>ล็อคระยะเช็คอิน (Geofence)</Text>
@@ -302,6 +322,9 @@ export function AdminSettingsScreen() {
 const styles = StyleSheet.create({
   h1: { fontSize: fontSize.lg, fontWeight: "700", color: colors.ink },
   sub: { fontSize: fontSize.sm, color: colors.inkSoft, marginTop: spacing.xs, marginBottom: spacing.md },
+  linkButton: { alignSelf: "flex-start", paddingVertical: spacing.sm, marginBottom: spacing.md },
+  linkButtonText: { fontSize: fontSize.sm, color: colors.navy, fontWeight: "600", textDecorationLine: "underline" },
+  actionsRow: { flexDirection: "row", gap: spacing.sm },
   cardTitle: { fontSize: fontSize.base, fontWeight: "700", color: colors.ink, marginBottom: spacing.xs },
   hint: { fontSize: fontSize.xs, color: colors.inkSoft, marginBottom: spacing.sm },
   enabledRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
