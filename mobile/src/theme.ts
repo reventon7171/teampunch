@@ -15,7 +15,7 @@ export const colors = {
   brandDark: "#0E4D45", // header/nav background
   white: "#FFFFFF",
 
-  // modern redesign tokens (PunchScreen + DutyPopup) — accent used for the punch button etc.
+  // modern redesign tokens (PunchScreen) — accent used for the punch button etc.
   black: "#0D0D0D",
   blackSoft: "#1A1A1A",
   onBlackMuted: "#8A8A8A",

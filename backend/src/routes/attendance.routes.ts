@@ -5,10 +5,9 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { upload, randomPhotoKey } from "../lib/upload";
 import { savePhoto, readPhoto } from "../lib/storage";
 import { punchSchema, attendanceQuerySchema } from "../validators/attendance.validators";
-import { serializeAttendance, serializeDutyAssignment, toPayrollEmployee } from "../lib/serialize";
+import { serializeAttendance, toPayrollEmployee } from "../lib/serialize";
 import { badRequest, conflict, notFound, forbidden } from "../lib/errors";
 import { todayStrBangkok, nowHHMMBangkok } from "../lib/thaiTime";
-import { pickRandomDutyOption } from "../lib/duties";
 import { distanceMeters } from "../lib/geo";
 import {
   isDayOff,
@@ -134,38 +133,7 @@ router.post(
       },
     });
 
-    // assign today's cleaning duty, only once per employee per day (a retried request just
-    // returns the same one already assigned). Priority: an admin's one-off date override
-    // (already in DutyAssignment) > the admin's weekly schedule rule for this weekday >
-    // random from the active pool (only if dutyRotationEnabled). Any of the first two apply
-    // even when dutyRotationEnabled is off — a specific/scheduled assignment isn't "random".
-    let duty = null;
-    const existingDuty = await prisma.dutyAssignment.findUnique({
-      where: { employeeId_date: { employeeId: emp.id, date } },
-      include: { taskOption: true },
-    });
-    if (existingDuty) {
-      duty = serializeDutyAssignment(existingDuty);
-    } else {
-      const weekday = new Date(date + "T00:00:00").getDay();
-      const rule = await prisma.dutyScheduleRule.findUnique({
-        where: { employeeId_weekday: { employeeId: emp.id, weekday } },
-      });
-      let taskId = rule?.taskId ?? null;
-      if (!taskId && emp.dutyRotationEnabled) {
-        const option = await pickRandomDutyOption(prisma, organizationId);
-        taskId = option?.id ?? null;
-      }
-      if (taskId) {
-        const dutyRecord = await prisma.dutyAssignment.create({
-          data: { organizationId, employeeId: emp.id, date, taskId },
-          include: { taskOption: true },
-        });
-        duty = serializeDutyAssignment(dutyRecord);
-      }
-    }
-
-    res.status(201).json({ ...serializeAttendance(record), duty });
+    res.status(201).json(serializeAttendance(record));
   })
 );
 
@@ -211,16 +179,12 @@ router.get(
     const emp = await getSelfEmployee(req.user!.id, organizationId);
     const date = todayStrBangkok();
 
-    const [{ record, date: recordDate }, holiday, leaves, swaps] = await Promise.all([
+    const [{ record }, holiday, leaves, swaps] = await Promise.all([
       getActiveAttendanceRecord(emp.id, date),
       prisma.holiday.findUnique({ where: { organizationId_date: { organizationId, date } } }),
       prisma.leave.findMany({ where: { employeeId: emp.id, date, status: "APPROVED" } }),
       getApprovedSwaps(emp.id),
     ]);
-    const dutyRecord = await prisma.dutyAssignment.findUnique({
-      where: { employeeId_date: { employeeId: emp.id, date: recordDate } },
-      include: { taskOption: true },
-    });
 
     const swappedToToday = swaps.find((s) => s.swappedToDate === date);
     const dayOff = isDayOff(emp, emp.id, date, swaps);
@@ -230,7 +194,6 @@ router.get(
     res.json({
       date,
       record: record ? serializeAttendance(record) : null,
-      duty: dutyRecord ? serializeDutyAssignment(dutyRecord) : null,
       isOffToday,
       offReason: holiday
         ? { type: "holiday", name: holiday.name }

@@ -11,7 +11,6 @@ export interface Employee {
   hireDate: string | null;
   username: string;
   active: boolean;
-  dutyRotationEnabled: boolean;
   socialSecurityRate: number;
   wageType: WageType;
   createdAt: string;
@@ -34,33 +33,7 @@ export interface AttendanceRecord {
   deductionAmount: number;
 }
 
-export interface DutyAssignment {
-  id: string;
-  employeeId: string;
-  date: string;
-  taskId: string;
-  label: string;
-  createdAt: string;
-}
-
-export interface DutyTaskOption {
-  id: string;
-  label: string;
-  active: boolean;
-  createdAt: string;
-}
-
-export interface DutyScheduleRule {
-  id: string;
-  employeeId: string;
-  weekday: number;
-  taskId: string;
-  label: string;
-}
-
-export interface CheckInResult extends AttendanceRecord {
-  duty: DutyAssignment | null;
-}
+export type CheckInResult = AttendanceRecord;
 
 export type LeaveType = "SICK" | "PERSONAL" | "VACATION";
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -128,7 +101,6 @@ export interface AdminPayrollRow extends PayrollBreakdown {
 export interface TodayStatus {
   date: string;
   record: AttendanceRecord | null;
-  duty: DutyAssignment | null;
   isOffToday: boolean;
   offReason:
     | { type: "holiday"; name: string }

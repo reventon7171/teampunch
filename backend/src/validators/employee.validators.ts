@@ -11,7 +11,6 @@ export const createEmployeeSchema = z.object({
   workEnd: z.string().regex(timeRegex, "รูปแบบเวลาไม่ถูกต้อง (HH:MM)"),
   daysOff: z.array(z.number().int().min(0).max(6)).default([]),
   hireDate: z.string().regex(dateRegex, "รูปแบบวันที่ไม่ถูกต้อง (YYYY-MM-DD)"),
-  dutyRotationEnabled: z.boolean().default(false),
   socialSecurityRate: z.coerce.number().min(0).max(100).default(0),
   wageType: z.enum(["MONTHLY", "DAILY_WAGE"]).default("MONTHLY"),
   username: z

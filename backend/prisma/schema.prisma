@@ -33,9 +33,6 @@ model Organization {
   holidays           Holiday[]
   advances           Advance[]
   commissions        Commission[]
-  dutyAssignments    DutyAssignment[]
-  dutyTaskOptions    DutyTaskOption[]
-  dutyScheduleRules  DutyScheduleRule[]
   dayOffSwaps        DayOffSwapRequest[]
   workplaceLocation  WorkplaceLocation?
 }
@@ -67,7 +64,6 @@ model Employee {
   username     String
   passwordHash String
   active       Boolean  @default(true)
-  dutyRotationEnabled Boolean @default(false) // opts this employee into the random daily cleaning-duty rotation at check-in (previously hardcoded to position === "เสิร์ฟ")
   socialSecurityRate Decimal @default(0) @db.Decimal(5, 2) // % deducted from this employee's gross pay each period (0 = no deduction). Percent of that period's pay, not a flat monthly figure.
   wageType     String   @default("MONTHLY") // MONTHLY (flat salary, prorated by hire date) | DAILY_WAGE (paid baseSalary/30 for each day actually checked in that period, nothing for days not worked — no late/leave deduction layered on top since there's no base salary to deduct from)
   createdAt    DateTime @default(now())
@@ -77,8 +73,6 @@ model Employee {
   leaves            Leave[]
   advances          Advance[]
   commissions       Commission[]
-  dutyAssignments   DutyAssignment[]
-  dutyScheduleRules DutyScheduleRule[]
   dayOffSwaps       DayOffSwapRequest[]
 
   @@unique([organizationId, username])
@@ -202,60 +196,6 @@ model Commission {
   updatedAt  DateTime @updatedAt
 
   @@unique([employeeId, yearMonth])
-}
-
-// Admin-managed list of possible daily cleaning duties (used to used to be a fixed 3-value
-// enum — now editable from the app so admins can add more without a code change/deploy).
-// Deactivating (not deleting) keeps history intact for duties already assigned.
-model DutyTaskOption {
-  id        String   @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  label     String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  assignments   DutyAssignment[]
-  scheduleRules DutyScheduleRule[]
-
-  @@unique([organizationId, label])
-}
-
-// Admin-set recurring rule: "every Monday, employee X gets task Y" — checked at check-in
-// BEFORE falling back to the random pool, so an employee can be fully random, fully fixed
-// (a rule for every weekday they work), or a mix (rules for some weekdays, random on others).
-model DutyScheduleRule {
-  id             String   @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employeeId     String
-  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  weekday        Int // 0 (Sun) - 6 (Sat)
-  taskId         String
-  taskOption     DutyTaskOption @relation(fields: [taskId], references: [id])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@unique([employeeId, weekday])
-}
-
-// Daily cleaning-duty rotation, assigned at check-in time to any employee with
-// dutyRotationEnabled=true (previously hardcoded to position === "เสิร์ฟ").
-// One assignment per employee per day (assigned once, randomly, and never reassigned that day)
-// so admins have a permanent record of who was responsible for what on any given date.
-model DutyAssignment {
-  id         String   @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date       String // "YYYY-MM-DD"
-  taskId     String
-  taskOption DutyTaskOption @relation(fields: [taskId], references: [id])
-  createdAt  DateTime @default(now())
-
-  @@unique([employeeId, date])
-  @@index([organizationId, date])
 }
 
 // One row per organization — the workplace's GPS coordinate + allowed check-in radius.

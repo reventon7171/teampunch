@@ -11,7 +11,6 @@ import holidayRoutes from "./routes/holidays.routes";
 import payrollRoutes from "./routes/payroll.routes";
 import payrollSettingsRoutes from "./routes/payrollSettings.routes";
 import adminRoutes from "./routes/admin.routes";
-import dutyRoutes from "./routes/duties.routes";
 import dayOffSwapRoutes from "./routes/dayOffSwaps.routes";
 
 export const app = express();
@@ -30,7 +29,6 @@ app.use("/api/holidays", holidayRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/payroll-settings", payrollSettingsRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/duties", dutyRoutes);
 app.use("/api/day-off-swaps", dayOffSwapRoutes);
 
 app.use((_req, res) => res.status(404).json({ error: "ไม่พบ endpoint นี้" }));

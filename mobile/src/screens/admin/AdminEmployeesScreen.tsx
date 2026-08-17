@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
@@ -8,7 +8,6 @@ import { TextField } from "../../components/TextField";
 import { TimeField } from "../../components/TimeField";
 import { DateField } from "../../components/DateField";
 import { ErrorBanner } from "../../components/ErrorBanner";
-import { ChoiceModal } from "../../components/ChoiceModal";
 import { Tag } from "../../components/Tag";
 import { createEmployee, deleteEmployee, updateEmployee, listEmployees, EmployeeInput } from "../../api/employees";
 import { Employee, WageType } from "../../api/types";
@@ -23,13 +22,10 @@ import { todayStr } from "../../utils/period";
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
 const WAGE_TYPE_LABELS: Record<WageType, string> = {
-  MONTHLY: "เงินเดือนคงที่ (รายเดือน)",
-  DAILY_WAGE: "ค่าจ้างรายวัน (มาวันไหนได้เงินวันนั้น ไม่มาไม่ได้)",
+  MONTHLY: "รายเดือน",
+  DAILY_WAGE: "รายวัน",
 };
-const WAGE_TYPE_OPTIONS = (Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((v) => ({
-  label: WAGE_TYPE_LABELS[v],
-  value: v,
-}));
+const WAGE_TYPES: WageType[] = ["MONTHLY", "DAILY_WAGE"];
 
 const emptyForm: EmployeeInput = {
   name: "",
@@ -39,7 +35,6 @@ const emptyForm: EmployeeInput = {
   workEnd: "18:00",
   daysOff: [],
   hireDate: todayStr(),
-  dutyRotationEnabled: false,
   socialSecurityRate: 0,
   wageType: "MONTHLY",
   username: "",
@@ -53,7 +48,6 @@ export function AdminEmployeesScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<EmployeeInput>(emptyForm);
   const [error, setError] = useState("");
-  const [wageTypePicker, setWageTypePicker] = useState(false);
 
   const closeForm = () => {
     setShowForm(false);
@@ -71,7 +65,6 @@ export function AdminEmployeesScreen() {
       workEnd: emp.workEnd,
       daysOff: emp.daysOff,
       hireDate: emp.hireDate ?? todayStr(),
-      dutyRotationEnabled: emp.dutyRotationEnabled,
       socialSecurityRate: emp.socialSecurityRate,
       wageType: emp.wageType,
       username: emp.username,
@@ -183,27 +176,20 @@ export function AdminEmployeesScreen() {
             })}
           </View>
 
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>รับหน้าที่ประจำวันแบบสุ่มตอนเช็คอิน</Text>
-            <Switch
-              value={!!form.dutyRotationEnabled}
-              onValueChange={(v) => setForm({ ...form, dutyRotationEnabled: v })}
-              trackColor={{ true: colors.navy }}
-            />
-          </View>
-
           <Text style={styles.label}>รูปแบบค่าจ้าง</Text>
-          <Pressable style={styles.pickBox} onPress={() => setWageTypePicker(true)}>
-            <Text style={styles.pickBoxText}>{WAGE_TYPE_LABELS[form.wageType ?? "MONTHLY"]}</Text>
-          </Pressable>
-          <ChoiceModal
-            visible={wageTypePicker}
-            title="รูปแบบค่าจ้าง"
-            options={WAGE_TYPE_OPTIONS}
-            selected={form.wageType ?? "MONTHLY"}
-            onSelect={(v) => setForm({ ...form, wageType: v as WageType })}
-            onClose={() => setWageTypePicker(false)}
-          />
+          <View style={styles.wageTypeRow}>
+            {WAGE_TYPES.map((wt) => (
+              <Button
+                key={wt}
+                title={WAGE_TYPE_LABELS[wt]}
+                variant={(form.wageType ?? "MONTHLY") === wt ? "navy" : "ghost"}
+                onPress={() => setForm({ ...form, wageType: wt })}
+              />
+            ))}
+          </View>
+          {form.wageType === "DAILY_WAGE" && (
+            <Text style={styles.hint}>มาวันไหนได้เงินวันนั้น ไม่มาไม่ได้ ไม่มีหักสาย/หักลาซ้อน</Text>
+          )}
 
           {form.wageType === "DAILY_WAGE" ? (
             <TextField
@@ -293,7 +279,6 @@ export function AdminEmployeesScreen() {
                 เริ่มงาน {emp.hireDate ? formatThaiDate(emp.hireDate) : "ไม่ระบุ"} · ทำงานมาแล้ว {formatTenure(emp.hireDate)}
               </Text>
               <Text style={styles.empDetail}>Username: {emp.username}</Text>
-              {emp.dutyRotationEnabled && <Text style={styles.empDetail}>🧹 รับหน้าที่ประจำวันแบบสุ่ม</Text>}
               {emp.socialSecurityRate > 0 && (
                 <Text style={styles.empDetail}>หักประกันสังคม {emp.socialSecurityRate}% ของเงินเดือนแต่ละงวด</Text>
               )}
@@ -325,16 +310,8 @@ const styles = StyleSheet.create({
   h1: { fontSize: fontSize.lg, fontWeight: "700", color: colors.ink, marginBottom: spacing.md },
   formTitle: { fontSize: fontSize.md, fontWeight: "700", color: colors.ink, marginBottom: spacing.md },
   label: { fontSize: fontSize.sm, color: colors.inkSoft, fontWeight: "600", marginBottom: spacing.xs },
-  pickBox: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.white,
-    marginBottom: spacing.md,
-  },
-  pickBoxText: { fontSize: fontSize.base, color: colors.ink },
+  wageTypeRow: { flexDirection: "row", gap: spacing.xs, marginBottom: spacing.xs },
+  hint: { fontSize: fontSize.xs, color: colors.inkSoft, marginBottom: spacing.md, lineHeight: 16 },
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.md },
   switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
   switchLabel: { fontSize: fontSize.sm, color: colors.ink, fontWeight: "600", flex: 1, marginRight: spacing.sm },

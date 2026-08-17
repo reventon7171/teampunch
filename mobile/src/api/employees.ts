@@ -9,7 +9,6 @@ export interface EmployeeInput {
   workEnd: string;
   daysOff: number[];
   hireDate: string;
-  dutyRotationEnabled?: boolean;
   socialSecurityRate?: number;
   wageType?: WageType;
   username: string;

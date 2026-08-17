@@ -6,7 +6,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../components/Button";
 import { Tag } from "../../components/Tag";
 import { ErrorBanner } from "../../components/ErrorBanner";
-import { DutyPopup } from "../../components/DutyPopup";
 import { StampedCapture, StampedCaptureHandle } from "../../components/StampedCapture";
 import { useAuth } from "../../context/AuthContext";
 import { checkIn, getTodayStatus, PunchPhoto } from "../../api/attendance";
@@ -34,7 +33,6 @@ export function PunchScreen() {
   const [geoStatus, setGeoStatus] = useState("");
   const [photo, setPhoto] = useState<PunchPhoto | null>(null);
   const [error, setError] = useState("");
-  const [dutyPopup, setDutyPopup] = useState<string | null>(null);
   const stampRef = useRef<StampedCaptureHandle>(null);
 
   const payrollConfig = usePayrollConfig();
@@ -56,12 +54,11 @@ export function PunchScreen() {
       const stamped = await stampRef.current!.capture();
       return checkIn(geo!.lat, geo!.lng, stamped);
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       resetCapture();
       setError("");
       qc.invalidateQueries({ queryKey: ["today"] });
       qc.invalidateQueries({ queryKey: ["myAttendance"] });
-      if (data.duty) setDutyPopup(data.duty.label);
     },
     onError: (e) => setError(e instanceof Error ? e.message : "เช็คอินไม่สำเร็จ"),
   });
@@ -138,18 +135,6 @@ export function PunchScreen() {
 
         {canCheckIn && (
           <>
-            {today?.duty && (
-              <View style={styles.dutyCard}>
-                <View style={styles.dutyIconBox}>
-                  <Text style={styles.dutyIconEmoji}>🧹</Text>
-                </View>
-                <View style={styles.dutyTextBlock}>
-                  <Text style={styles.dutyEyebrow}>หน้าที่ประจำวันนี้ของคุณ</Text>
-                  <Text style={styles.dutyLabel}>{today.duty.label}</Text>
-                </View>
-              </View>
-            )}
-
             <View style={styles.captureGrid}>
               <Pressable style={styles.captureCard} onPress={captureLocation}>
                 <Text style={styles.captureIcon}>📍</Text>
@@ -217,8 +202,6 @@ export function PunchScreen() {
         )}
       </View>
       </ScrollView>
-
-      <DutyPopup visible={!!dutyPopup} duty={dutyPopup ?? ""} onDismiss={() => setDutyPopup(null)} />
     </View>
   );
 }
@@ -287,27 +270,6 @@ const styles = StyleSheet.create({
   clockBlock: { alignItems: "center", paddingVertical: spacing.md },
   shift: { fontSize: fontSize.sm, color: colors.creamInkMuted, marginBottom: spacing.xs },
   clock: { fontSize: fontSize.clock, fontWeight: "700", color: colors.creamInk },
-  dutyCard: {
-    backgroundColor: colors.black,
-    borderRadius: radius.md * 2,
-    padding: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  dutyIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md * 2,
-    backgroundColor: colors.navy,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dutyIconEmoji: { fontSize: 22 },
-  dutyTextBlock: { flex: 1 },
-  dutyEyebrow: { fontSize: fontSize.xs, color: colors.onBlackFaint, marginBottom: 3 },
-  dutyLabel: { fontSize: fontSize.md, fontWeight: "700", color: colors.white },
   captureGrid: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   captureCard: {
     flex: 1,

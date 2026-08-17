@@ -20,10 +20,7 @@ const FREQUENCY_LABELS: Record<PayFrequency, string> = {
   MONTHLY: "รายเดือน (1 ครั้ง/เดือน)",
   SEMI_MONTHLY: "แบ่งจ่าย 2 งวด/เดือน",
 };
-const FREQUENCY_OPTIONS = (Object.keys(FREQUENCY_LABELS) as PayFrequency[]).map((v) => ({
-  label: FREQUENCY_LABELS[v],
-  value: v,
-}));
+const PAY_FREQUENCIES: PayFrequency[] = ["WEEKLY", "MONTHLY", "SEMI_MONTHLY"];
 const DAY_OF_MONTH_OPTIONS = Array.from({ length: 28 }, (_, i) => ({ label: `วันที่ ${i + 1}`, value: String(i + 1) }));
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -47,7 +44,7 @@ export function AdminSettingsScreen() {
 
   const payrollQuery = useQuery({ queryKey: ["payrollSettings"], queryFn: getPayrollSettings });
   const [payroll, setPayroll] = useState<PayrollConfig | null>(null);
-  const [payrollPicker, setPayrollPicker] = useState<null | "frequency" | "monthlyPayDay" | "semi1" | "semi2">(null);
+  const [payrollPicker, setPayrollPicker] = useState<null | "monthlyPayDay" | "semi1" | "semi2">(null);
   const [payrollError, setPayrollError] = useState("");
 
   useEffect(() => {
@@ -183,9 +180,16 @@ export function AdminSettingsScreen() {
         {payroll && (
           <>
             <Text style={styles.label}>ความถี่การจ่ายเงิน</Text>
-            <Pressable style={styles.pickBox} onPress={() => setPayrollPicker("frequency")}>
-              <Text style={styles.pickBoxText}>{FREQUENCY_LABELS[payroll.payFrequency]}</Text>
-            </Pressable>
+            <View style={styles.frequencyRow}>
+              {PAY_FREQUENCIES.map((freq) => (
+                <Button
+                  key={freq}
+                  title={FREQUENCY_LABELS[freq]}
+                  variant={payroll.payFrequency === freq ? "navy" : "ghost"}
+                  onPress={() => setPayroll({ ...payroll, payFrequency: freq })}
+                />
+              ))}
+            </View>
 
             {payroll.payFrequency === "WEEKLY" && (
               <>
@@ -239,14 +243,6 @@ export function AdminSettingsScreen() {
         )}
 
         <ChoiceModal
-          visible={payrollPicker === "frequency"}
-          title="ความถี่การจ่ายเงิน"
-          options={FREQUENCY_OPTIONS}
-          selected={payroll?.payFrequency ?? ""}
-          onSelect={(v) => payroll && setPayroll({ ...payroll, payFrequency: v as PayFrequency })}
-          onClose={() => setPayrollPicker(null)}
-        />
-        <ChoiceModal
           visible={payrollPicker === "monthlyPayDay"}
           title="จ่ายวันที่"
           options={DAY_OF_MONTH_OPTIONS}
@@ -285,6 +281,7 @@ const styles = StyleSheet.create({
   enabledRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
   enabledLabel: { fontSize: fontSize.sm, color: colors.ink, fontWeight: "600" },
   label: { fontSize: fontSize.sm, color: colors.inkSoft, fontWeight: "600", marginBottom: spacing.xs, marginTop: spacing.xs },
+  frequencyRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.md },
   pickBox: {
     borderWidth: 1,
     borderColor: colors.line,

@@ -7,7 +7,6 @@ import { AdminAttendanceScreen } from "../screens/admin/AdminAttendanceScreen";
 import { AdminPayrollScreen } from "../screens/admin/AdminPayrollScreen";
 import { AdminHolidaysScreen } from "../screens/admin/AdminHolidaysScreen";
 import { AdminLeavesScreen } from "../screens/admin/AdminLeavesScreen";
-import { AdminDutiesScreen } from "../screens/admin/AdminDutiesScreen";
 import { AdminSettingsScreen } from "../screens/admin/AdminSettingsScreen";
 
 const Tab = createBottomTabNavigator();
@@ -48,11 +47,6 @@ export function AdminTabs() {
         name="Holidays"
         component={AdminHolidaysScreen}
         options={{ title: "วันหยุด", tabBarIcon: icon("🏖") }}
-      />
-      <Tab.Screen
-        name="Duties"
-        component={AdminDutiesScreen}
-        options={{ title: "หน้าที่", tabBarIcon: icon("🧹") }}
       />
       <Tab.Screen
         name="Settings"

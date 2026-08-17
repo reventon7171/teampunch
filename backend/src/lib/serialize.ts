@@ -1,4 +1,4 @@
-import { Employee, Organization, Attendance, Leave, Holiday, Advance, Commission, DutyAssignment, DutyTaskOption, DutyScheduleRule, DayOffSwapRequest } from "@prisma/client";
+import { Employee, Organization, Attendance, Leave, Holiday, Advance, Commission, DayOffSwapRequest } from "@prisma/client";
 import { PayrollEmployee, PayrollConfig, WageType } from "./payroll";
 
 const num = (d: unknown): number | null => (d === null || d === undefined ? null : Number(d));
@@ -41,7 +41,6 @@ export const serializeEmployee = (emp: Employee) => ({
   hireDate: emp.hireDate,
   username: emp.username,
   active: emp.active,
-  dutyRotationEnabled: emp.dutyRotationEnabled,
   socialSecurityRate: Number(emp.socialSecurityRate),
   wageType: emp.wageType,
   createdAt: emp.createdAt,
@@ -92,30 +91,6 @@ export const serializeCommission = (c: Commission) => ({
   employeeId: c.employeeId,
   yearMonth: c.yearMonth,
   amount: Number(c.amount),
-});
-
-export const serializeDutyAssignment = (d: DutyAssignment & { taskOption: DutyTaskOption }) => ({
-  id: d.id,
-  employeeId: d.employeeId,
-  date: d.date,
-  taskId: d.taskId,
-  label: d.taskOption.label,
-  createdAt: d.createdAt,
-});
-
-export const serializeDutyTaskOption = (t: DutyTaskOption) => ({
-  id: t.id,
-  label: t.label,
-  active: t.active,
-  createdAt: t.createdAt,
-});
-
-export const serializeDutyScheduleRule = (r: DutyScheduleRule & { taskOption: DutyTaskOption }) => ({
-  id: r.id,
-  employeeId: r.employeeId,
-  weekday: r.weekday,
-  taskId: r.taskId,
-  label: r.taskOption.label,
 });
 
 export const serializeDayOffSwap = (s: DayOffSwapRequest) => ({
