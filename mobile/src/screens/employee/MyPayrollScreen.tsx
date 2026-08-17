@@ -33,7 +33,16 @@ export function MyPayrollScreen() {
         {p && (
           <View>
             {p.wageType === "DAILY_WAGE" ? (
-              <Row label={`ค่าจ้างงวดนี้ (มาทำงาน ${p.daysWorkedInPeriod} วัน)`} value={`${formatMoney(p.periodSalary)} บาท`} />
+              <>
+                <Row label={`ค่าจ้างงวดนี้ (มาทำงาน ${p.daysWorkedInPeriod} วัน)`} value={`${formatMoney(p.periodSalary)} บาท`} />
+                {p.dailyWageAbsenceDeduction > 0 && (
+                  <Row
+                    label={`หักขาดงาน (${p.absenceCount} วัน)`}
+                    value={`หัก ${formatMoney(p.dailyWageAbsenceDeduction)} บาท`}
+                    negative
+                  />
+                )}
+              </>
             ) : (
               <>
                 <Row label="เงินเดือนงวดนี้" value={`${formatMoney(p.periodSalary)} บาท`} />

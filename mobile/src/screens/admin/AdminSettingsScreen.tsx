@@ -242,11 +242,15 @@ export function AdminSettingsScreen() {
 
             {payroll.payFrequency === "SEMI_MONTHLY" && (
               <>
-                <Text style={styles.label}>จ่ายงวดแรก (ครอบคลุมวันที่ 1-15)</Text>
+                <Text style={styles.hint}>
+                  แต่ละงวดจะนับตั้งแต่วันถัดจากวันจ่ายก่อนหน้า ถึงวันจ่ายนี้ (จ่ายวันเดียวกับวันสิ้นสุดงวด) — เช่น ตั้งวันที่ 5 กับ 20:
+                  งวดจ่ายวันที่ 5 จะครอบคลุมวันที่ 21 ของเดือนก่อน ถึงวันที่ 5, งวดจ่ายวันที่ 20 จะครอบคลุมวันที่ 6-20
+                </Text>
+                <Text style={styles.label}>จ่ายงวดแรกวันที่</Text>
                 <Pressable style={styles.pickBox} onPress={() => setPayrollPicker("semi1")}>
                   <Text style={styles.pickBoxText}>วันที่ {payroll.semiMonthlyPayDay1}</Text>
                 </Pressable>
-                <Text style={styles.label}>จ่ายงวดที่สอง (ครอบคลุมวันที่ 16-สิ้นเดือน, จ่ายเดือนถัดไป)</Text>
+                <Text style={styles.label}>จ่ายงวดที่สองวันที่</Text>
                 <Pressable style={styles.pickBox} onPress={() => setPayrollPicker("semi2")}>
                   <Text style={styles.pickBoxText}>วันที่ {payroll.semiMonthlyPayDay2}</Text>
                 </Pressable>
@@ -278,6 +282,34 @@ export function AdminSettingsScreen() {
               keyboardType="numeric"
               placeholder="เช่น 100 (เว้นว่าง = เท่ากับชั่วโมงแรก)"
             />
+
+            <View style={styles.enabledRow}>
+              <Text style={styles.enabledLabel}>หักเงินพนักงานรายวันที่ขาดงาน</Text>
+              <Switch
+                value={payroll.dailyWageDeductAbsence}
+                onValueChange={(v) => setPayroll({ ...payroll, dailyWageDeductAbsence: v })}
+                trackColor={{ true: colors.navy }}
+              />
+            </View>
+            <Text style={styles.hint}>
+              เฉพาะพนักงาน "รายวัน" — ปกติวันที่ไม่มาทำงานจะไม่ได้เงินอยู่แล้ว ถ้าเปิดตัวนี้จะหักเพิ่มเป็นค่าปรับตามจำนวนบาทที่กำหนด
+            </Text>
+            {payroll.dailyWageDeductAbsence && (
+              <TextField
+                label="หักเงินกี่บาทต่อวันที่ขาด"
+                value={
+                  payroll.dailyWageAbsenceDeductionAmount != null ? String(payroll.dailyWageAbsenceDeductionAmount) : ""
+                }
+                onChangeText={(v) =>
+                  setPayroll({
+                    ...payroll,
+                    dailyWageAbsenceDeductionAmount: v === "" ? null : Number(v.replace(/[^0-9.]/g, "")) || 0,
+                  })
+                }
+                keyboardType="numeric"
+                placeholder="เช่น 300"
+              />
+            )}
 
             <Button
               title="บันทึกรอบการจ่ายเงินเดือน"

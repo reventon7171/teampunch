@@ -13,6 +13,10 @@ export interface PayrollConfig {
   // behavior). A number switches the whole org to a flat baht amount instead.
   lateDeductionFirstHour: number | null;
   lateDeductionPerExtraHour: number | null;
+  // optional extra flat penalty for daily-wage employees on top of simply not being paid
+  // for a day they didn't work
+  dailyWageDeductAbsence: boolean;
+  dailyWageAbsenceDeductionAmount: number | null;
 }
 
 // bxs-bar's original hardcoded schedule (paid the 16th and the 1st) — used until the real
@@ -25,6 +29,8 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   semiMonthlyPayDay2: 1,
   lateDeductionFirstHour: null,
   lateDeductionPerExtraHour: null,
+  dailyWageDeductAbsence: false,
+  dailyWageAbsenceDeductionAmount: null,
 };
 
 export interface PeriodInfo {
@@ -60,9 +66,20 @@ export const periodKeyFromDate = (dateStr: string, config: PayrollConfig): strin
       return dateStr.slice(0, 7);
     case "SEMI_MONTHLY":
     default: {
+      const lo = Math.min(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
+      const hi = Math.max(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
       const ym = dateStr.slice(0, 7);
       const day = Number(dateStr.slice(8, 10));
-      return `${ym}-${day <= 15 ? "H1" : "H2"}`;
+      if (day <= lo) return `${ym}-A`;
+      if (day <= hi) return `${ym}-B`;
+      const [y, m] = ym.split("-").map(Number);
+      let nm = m + 1;
+      let ny = y;
+      if (nm > 12) {
+        nm = 1;
+        ny += 1;
+      }
+      return `${ny}-${pad2(nm)}-A`;
     }
   }
 };
@@ -93,26 +110,27 @@ export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo
 
     case "SEMI_MONTHLY":
     default: {
-      const [yStr, mStr, half] = periodKey.split("-") as [string, string, "H1" | "H2"];
+      const [yStr, mStr, half] = periodKey.split("-") as [string, string, "A" | "B"];
       const y = Number(yStr);
       const m = Number(mStr);
-      const startDate = half === "H1" ? `${yStr}-${mStr}-01` : `${yStr}-${mStr}-16`;
-      const endDate = half === "H1" ? `${yStr}-${mStr}-15` : `${yStr}-${mStr}-${pad2(lastDayOfMonth(y, m))}`;
-      let payY = y;
-      let payM = m;
-      let payD: number;
-      if (half === "H1") {
-        payD = config.semiMonthlyPayDay1;
-      } else {
-        payD = config.semiMonthlyPayDay2;
-        payM = m + 1;
-        if (payM > 12) {
-          payM = 1;
-          payY += 1;
+      const lo = Math.min(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
+      const hi = Math.max(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
+
+      if (half === "A") {
+        const endDate = `${yStr}-${mStr}-${pad2(lo)}`;
+        let py = y;
+        let pm = m - 1;
+        if (pm < 1) {
+          pm = 12;
+          py -= 1;
         }
+        const prevCutoff = `${py}-${pad2(pm)}-${pad2(hi)}`;
+        const startDate = shiftDateStr(prevCutoff, 1);
+        return { periodKey, startDate, endDate, payDate: endDate, ym: `${yStr}-${mStr}` };
       }
-      const payDate = `${payY}-${pad2(payM)}-${pad2(payD)}`;
-      return { periodKey, startDate, endDate, payDate, ym: `${yStr}-${mStr}` };
+      const endDate = `${yStr}-${mStr}-${pad2(hi)}`;
+      const startDate = `${yStr}-${mStr}-${pad2(lo + 1)}`;
+      return { periodKey, startDate, endDate, payDate: endDate, ym: `${yStr}-${mStr}` };
     }
   }
 };
@@ -132,14 +150,14 @@ export const shiftPeriod = (periodKey: string, delta: number, config: PayrollCon
 
     case "SEMI_MONTHLY":
     default: {
-      const [yStr, mStr, half] = periodKey.split("-") as [string, string, "H1" | "H2"];
+      const [yStr, mStr, half] = periodKey.split("-") as [string, string, "A" | "B"];
       const y = Number(yStr);
       const m = Number(mStr);
-      const idx = y * 24 + (m - 1) * 2 + (half === "H1" ? 0 : 1) + delta;
+      const idx = y * 24 + (m - 1) * 2 + (half === "A" ? 0 : 1) + delta;
       const newY = Math.floor(idx / 24);
       const rem = idx - newY * 24;
       const newM = Math.floor(rem / 2) + 1;
-      const newHalf: "H1" | "H2" = rem % 2 === 0 ? "H1" : "H2";
+      const newHalf: "A" | "B" = rem % 2 === 0 ? "A" : "B";
       return `${newY}-${pad2(newM)}-${newHalf}`;
     }
   }

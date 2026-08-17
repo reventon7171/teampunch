@@ -10,4 +10,6 @@ export const updatePayrollSettingsSchema = z.object({
   // behavior). A number switches the whole org to a flat baht amount instead.
   lateDeductionFirstHour: z.number().min(0).nullable().optional(),
   lateDeductionPerExtraHour: z.number().min(0).nullable().optional(),
+  dailyWageDeductAbsence: z.boolean().optional(),
+  dailyWageAbsenceDeductionAmount: z.number().min(0).nullable().optional(),
 });

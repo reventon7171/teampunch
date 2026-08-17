@@ -60,7 +60,12 @@ export function AdminPayrollScreen() {
           </View>
 
           {p.wageType === "DAILY_WAGE" ? (
-            <Row label={`ค่าจ้างงวดนี้ (มาทำงาน ${p.daysWorkedInPeriod} วัน)`} value={formatMoney(p.periodSalary)} />
+            <>
+              <Row label={`ค่าจ้างงวดนี้ (มาทำงาน ${p.daysWorkedInPeriod} วัน)`} value={formatMoney(p.periodSalary)} />
+              {p.dailyWageAbsenceDeduction > 0 && (
+                <Row label={`หักขาดงาน (${p.absenceCount} วัน)`} value={formatMoney(p.dailyWageAbsenceDeduction)} />
+              )}
+            </>
           ) : (
             <>
               <Row label="เงินเดือนงวดนี้" value={formatMoney(p.periodSalary)} />

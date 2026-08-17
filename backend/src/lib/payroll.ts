@@ -257,8 +257,16 @@ export interface PayrollConfig {
   frequency: PayFrequency;
   weeklyPayWeekday: number; // 0 (Sun) - 6 (Sat) — payday when frequency=WEEKLY
   monthlyPayDay: number; // 1-28 — payday (of the following month) when frequency=MONTHLY
-  semiMonthlyPayDay1: number; // 1-28 — payday for the 1st-15th period when frequency=SEMI_MONTHLY
-  semiMonthlyPayDay2: number; // 1-28 — payday (of the following month) for the 16th-end period
+  // Two cutoff-paydays per month when frequency=SEMI_MONTHLY (order doesn't matter — sorted
+  // internally). Each period runs from the day AFTER the previous payday through this payday
+  // (inclusive), paid same-day. E.g. paydays 5 & 20: the period paid the 5th covers the 21st
+  // of last month through the 5th; the period paid the 20th covers the 6th through the 20th.
+  semiMonthlyPayDay1: number; // 1-28
+  semiMonthlyPayDay2: number; // 1-28
+  // Daily-wage employees are normally simply unpaid for a day they don't work — this adds an
+  // optional extra flat penalty on top, admin-configured. Ignored for MONTHLY employees.
+  dailyWageDeductAbsence: boolean;
+  dailyWageAbsenceDeductionAmount: number | null; // baht per absent day; only used if the flag above is true
 }
 
 // bxs-bar's original hardcoded schedule (paid the 16th and the 1st) — used as the default for
@@ -269,6 +277,8 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   monthlyPayDay: 1,
   semiMonthlyPayDay1: 16,
   semiMonthlyPayDay2: 1,
+  dailyWageDeductAbsence: false,
+  dailyWageAbsenceDeductionAmount: null,
 };
 
 export interface PeriodInfo {
@@ -296,9 +306,21 @@ export const periodKeyFromDate = (dateStr: string, config: PayrollConfig): strin
       return dateStr.slice(0, 7); // "YYYY-MM"
     case "SEMI_MONTHLY":
     default: {
+      const lo = Math.min(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
+      const hi = Math.max(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
       const ym = dateStr.slice(0, 7);
       const day = Number(dateStr.slice(8, 10));
-      return `${ym}-${day <= 15 ? "H1" : "H2"}`;
+      if (day <= lo) return `${ym}-A`;
+      if (day <= hi) return `${ym}-B`;
+      // after the later cutoff — belongs to next month's "A" period
+      const [y, m] = ym.split("-").map(Number);
+      let nm = m + 1;
+      let ny = y;
+      if (nm > 12) {
+        nm = 1;
+        ny += 1;
+      }
+      return `${ny}-${pad2(nm)}-A`;
     }
   }
 };
@@ -329,26 +351,27 @@ export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo
 
     case "SEMI_MONTHLY":
     default: {
-      const [yStr, mStr, half] = periodKey.split("-") as [string, string, "H1" | "H2"];
+      const [yStr, mStr, half] = periodKey.split("-") as [string, string, "A" | "B"];
       const y = Number(yStr);
       const m = Number(mStr);
-      const startDate = half === "H1" ? `${yStr}-${mStr}-01` : `${yStr}-${mStr}-16`;
-      const endDate = half === "H1" ? `${yStr}-${mStr}-15` : `${yStr}-${mStr}-${pad2(lastDayOfMonth(y, m))}`;
-      let payY = y;
-      let payM = m;
-      let payD: number;
-      if (half === "H1") {
-        payD = config.semiMonthlyPayDay1;
-      } else {
-        payD = config.semiMonthlyPayDay2;
-        payM = m + 1;
-        if (payM > 12) {
-          payM = 1;
-          payY += 1;
+      const lo = Math.min(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
+      const hi = Math.max(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
+
+      if (half === "A") {
+        const endDate = `${yStr}-${mStr}-${pad2(lo)}`;
+        let py = y;
+        let pm = m - 1;
+        if (pm < 1) {
+          pm = 12;
+          py -= 1;
         }
+        const prevCutoff = `${py}-${pad2(pm)}-${pad2(hi)}`;
+        const startDate = shiftDateStr(prevCutoff, 1);
+        return { periodKey, startDate, endDate, payDate: endDate, ym: `${yStr}-${mStr}` };
       }
-      const payDate = `${payY}-${pad2(payM)}-${pad2(payD)}`;
-      return { periodKey, startDate, endDate, payDate, ym: `${yStr}-${mStr}` };
+      const endDate = `${yStr}-${mStr}-${pad2(hi)}`;
+      const startDate = `${yStr}-${mStr}-${pad2(lo + 1)}`;
+      return { periodKey, startDate, endDate, payDate: endDate, ym: `${yStr}-${mStr}` };
     }
   }
 };
@@ -368,14 +391,14 @@ export const shiftPeriod = (periodKey: string, delta: number, config: PayrollCon
 
     case "SEMI_MONTHLY":
     default: {
-      const [yStr, mStr, half] = periodKey.split("-") as [string, string, "H1" | "H2"];
+      const [yStr, mStr, half] = periodKey.split("-") as [string, string, "A" | "B"];
       const y = Number(yStr);
       const m = Number(mStr);
-      const idx = y * 24 + (m - 1) * 2 + (half === "H1" ? 0 : 1) + delta;
+      const idx = y * 24 + (m - 1) * 2 + (half === "A" ? 0 : 1) + delta;
       const newY = Math.floor(idx / 24);
       const rem = idx - newY * 24;
       const newM = Math.floor(rem / 2) + 1;
-      const newHalf: "H1" | "H2" = rem % 2 === 0 ? "H1" : "H2";
+      const newHalf: "A" | "B" = rem % 2 === 0 ? "A" : "B";
       return `${newY}-${pad2(newM)}-${newHalf}`;
     }
   }
@@ -394,6 +417,7 @@ export interface PayrollBreakdown {
   leaveCount: number;
   leaveDeduction: number; // always 0 for DAILY_WAGE
   absenceCount: number;
+  dailyWageAbsenceDeduction: number; // always 0 unless wageType=DAILY_WAGE and the org opted into it
   socialSecurityDeduction: number;
   advanceAmount: number;
   commissionAmount: number;
@@ -487,6 +511,14 @@ export const computePayroll = (
     swaps
   );
 
+  // optional extra penalty for daily-wage employees on top of simply not being paid for the
+  // day — off by default (dailyWageDeductAbsence=false), and never applies to MONTHLY staff
+  // (their absence is already reflected via the late/leave deduction machinery above).
+  const dailyWageAbsenceDeduction =
+    wageType === "DAILY_WAGE" && config.dailyWageDeductAbsence
+      ? absenceCount * (config.dailyWageAbsenceDeductionAmount ?? 0)
+      : 0;
+
   const socialSecurityDeduction = Math.max(0, periodSalary * ((emp.socialSecurityRate ?? 0) / 100));
 
   // commission is still set by the admin once per calendar month (Commission.yearMonth) — it's
@@ -497,7 +529,14 @@ export const computePayroll = (
   const isCommissionPeriod = info.startDate <= monthEndDate && info.endDate >= monthEndDate;
   const commission = isCommissionPeriod ? commissionAmount : 0;
 
-  const net = periodSalary - lateDeduction - leaveDeduction - socialSecurityDeduction - advanceAmount + commission;
+  const net =
+    periodSalary -
+    lateDeduction -
+    leaveDeduction -
+    dailyWageAbsenceDeduction -
+    socialSecurityDeduction -
+    advanceAmount +
+    commission;
 
   return {
     info,
@@ -511,6 +550,7 @@ export const computePayroll = (
     leaveCount,
     leaveDeduction,
     absenceCount,
+    dailyWageAbsenceDeduction,
     socialSecurityDeduction,
     advanceAmount,
     commissionAmount: commission,

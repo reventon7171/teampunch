@@ -20,11 +20,15 @@ model Organization {
   // Payroll cadence — every business pays on its own schedule, so this was pulled out of
   // hardcoded "1st/16th of the month" (bxs-bar's rule) into an org-level setting. Only the
   // fields relevant to the chosen payFrequency are used; the rest sit at their default.
+  // For SEMI_MONTHLY, the two paydays are cutoff dates (order doesn't matter): each period
+  // runs from the day after the previous payday through this payday, paid same-day — e.g.
+  // paydays 5 & 20 → the period paid the 5th covers the 21st of last month through the 5th,
+  // and the period paid the 20th covers the 6th through the 20th.
   payFrequency       String @default("SEMI_MONTHLY") // WEEKLY | MONTHLY | SEMI_MONTHLY
   weeklyPayWeekday   Int    @default(5) // 0 (Sun) - 6 (Sat) — payday when payFrequency=WEEKLY
   monthlyPayDay      Int    @default(1) // 1-28 — payday (of the following month) when payFrequency=MONTHLY
-  semiMonthlyPayDay1 Int    @default(16) // payday for the 1st-15th period when payFrequency=SEMI_MONTHLY
-  semiMonthlyPayDay2 Int    @default(1) // payday (of the following month) for the 16th-end period
+  semiMonthlyPayDay1 Int    @default(16)
+  semiMonthlyPayDay2 Int    @default(1)
 
   // Late-arrival deduction — a flat baht amount the admin sets directly, instead of deriving
   // it from each employee's hourly rate. Both null (the default) means "keep computing it
@@ -34,6 +38,11 @@ model Organization {
   // if that one is left null) for each additional hour late beyond the first.
   lateDeductionFirstHour    Decimal? @db.Decimal(12, 2)
   lateDeductionPerExtraHour Decimal? @db.Decimal(12, 2)
+
+  // Daily-wage employees are already simply unpaid for a day they don't work — this is an
+  // OPTIONAL extra flat penalty on top of that, off by default. Ignored for MONTHLY employees.
+  dailyWageDeductAbsence          Boolean  @default(false)
+  dailyWageAbsenceDeductionAmount Decimal? @db.Decimal(12, 2)
 
   admins             Admin[]
   employees          Employee[]
