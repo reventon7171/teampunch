@@ -1,5 +1,5 @@
 import { Employee, Organization, Attendance, Leave, Holiday, Advance, Commission, DutyAssignment, DutyTaskOption, DutyScheduleRule, DayOffSwapRequest } from "@prisma/client";
-import { PayrollEmployee, PayrollConfig } from "./payroll";
+import { PayrollEmployee, PayrollConfig, WageType } from "./payroll";
 
 const num = (d: unknown): number | null => (d === null || d === undefined ? null : Number(d));
 
@@ -11,6 +11,7 @@ export const toPayrollEmployee = (emp: Employee): PayrollEmployee => ({
   daysOff: emp.daysOff,
   hireDate: emp.hireDate,
   socialSecurityRate: Number(emp.socialSecurityRate),
+  wageType: emp.wageType as WageType,
 });
 
 export const toPayrollConfig = (org: Organization): PayrollConfig => ({
@@ -42,6 +43,7 @@ export const serializeEmployee = (emp: Employee) => ({
   active: emp.active,
   dutyRotationEnabled: emp.dutyRotationEnabled,
   socialSecurityRate: Number(emp.socialSecurityRate),
+  wageType: emp.wageType,
   createdAt: emp.createdAt,
 });
 

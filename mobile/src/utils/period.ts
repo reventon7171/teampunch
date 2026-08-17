@@ -1,7 +1,7 @@
 // Client-side mirror of the same period math in backend/src/lib/payroll.ts — used here only
 // for labeling/navigating periods in the UI, never for computing money (the server is the
 // only source of truth for payroll amounts).
-export type PayFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "SEMI_MONTHLY";
+export type PayFrequency = "WEEKLY" | "MONTHLY" | "SEMI_MONTHLY";
 
 export interface PayrollConfig {
   payFrequency: PayFrequency;
@@ -45,8 +45,6 @@ export const shiftDateStr = (dateStr: string, deltaDays: number): string => {
 
 export const periodKeyFromDate = (dateStr: string, config: PayrollConfig): string => {
   switch (config.payFrequency) {
-    case "DAILY":
-      return dateStr;
     case "WEEKLY": {
       const dow = dateAt(dateStr).getDay();
       const daysUntilEnd = (config.weeklyPayWeekday - dow + 7) % 7;
@@ -65,9 +63,6 @@ export const periodKeyFromDate = (dateStr: string, config: PayrollConfig): strin
 
 export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo => {
   switch (config.payFrequency) {
-    case "DAILY":
-      return { periodKey, startDate: periodKey, endDate: periodKey, payDate: periodKey, ym: periodKey.slice(0, 7) };
-
     case "WEEKLY": {
       const endDate = periodKey;
       const startDate = shiftDateStr(endDate, -6);
@@ -118,9 +113,6 @@ export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo
 
 export const shiftPeriod = (periodKey: string, delta: number, config: PayrollConfig): string => {
   switch (config.payFrequency) {
-    case "DAILY":
-      return shiftDateStr(periodKey, delta);
-
     case "WEEKLY":
       return shiftDateStr(periodKey, delta * 7);
 
@@ -153,10 +145,6 @@ const formatThaiDayMonthYear = (dateStr: string): string =>
 export const periodLabel = (periodKey: string, config: PayrollConfig): { rangeLabel: string; payLabel: string } => {
   const info = periodInfo(periodKey, config);
   const payLabel = `จ่ายวันที่ ${formatThaiDayMonthYear(info.payDate)}`;
-
-  if (config.payFrequency === "DAILY") {
-    return { rangeLabel: formatThaiDayMonthYear(info.startDate), payLabel };
-  }
 
   const sameMonth = info.startDate.slice(0, 7) === info.endDate.slice(0, 7);
   if (sameMonth) {

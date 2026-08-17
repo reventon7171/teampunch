@@ -32,30 +32,36 @@ export function MyPayrollScreen() {
         {isLoading && <ActivityIndicator color={colors.navy} />}
         {p && (
           <View>
-            <Row label="เงินเดือนงวดนี้" value={`${formatMoney(p.periodSalary)} บาท`} />
-            {p.employedDays < p.periodDays && (
-              <Text style={styles.note}>
-                เริ่มงานกลางงวด — คิดตามวันที่ทำงานจริง {p.employedDays}/{p.periodDays} วัน
-              </Text>
-            )}
-            <Row label={`สาย ${p.lateCount} ครั้ง`} value={`หัก ${formatMoney(p.lateDeduction)} บาท`} negative={p.lateDeduction > 0} />
-            {lateDays.length > 0 && (
-              <View style={styles.lateList}>
-                {lateDays.map((r) => (
-                  <View key={r.id} style={styles.lateRow}>
-                    <Text style={styles.lateDate}>{formatThaiDate(r.date)}</Text>
-                    <Text style={styles.lateHours}>
-                      สาย {r.lateMinutes} นาที (นับเป็น {r.deductionHours} ชม.)
-                    </Text>
+            {p.wageType === "DAILY_WAGE" ? (
+              <Row label={`ค่าจ้างงวดนี้ (มาทำงาน ${p.daysWorkedInPeriod} วัน)`} value={`${formatMoney(p.periodSalary)} บาท`} />
+            ) : (
+              <>
+                <Row label="เงินเดือนงวดนี้" value={`${formatMoney(p.periodSalary)} บาท`} />
+                {p.employedDays < p.periodDays && (
+                  <Text style={styles.note}>
+                    เริ่มงานกลางงวด — คิดตามวันที่ทำงานจริง {p.employedDays}/{p.periodDays} วัน
+                  </Text>
+                )}
+                <Row label={`สาย ${p.lateCount} ครั้ง`} value={`หัก ${formatMoney(p.lateDeduction)} บาท`} negative={p.lateDeduction > 0} />
+                {lateDays.length > 0 && (
+                  <View style={styles.lateList}>
+                    {lateDays.map((r) => (
+                      <View key={r.id} style={styles.lateRow}>
+                        <Text style={styles.lateDate}>{formatThaiDate(r.date)}</Text>
+                        <Text style={styles.lateHours}>
+                          สาย {r.lateMinutes} นาที (นับเป็น {r.deductionHours} ชม.)
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                )}
+                <Row
+                  label={`ลาที่อนุมัติแล้ว ${p.leaveCount} วัน · ขาดงาน ${p.absenceCount} วัน`}
+                  value={`หัก ${formatMoney(p.leaveDeduction)} บาท`}
+                  negative={p.leaveDeduction > 0}
+                />
+              </>
             )}
-            <Row
-              label={`ลาที่อนุมัติแล้ว ${p.leaveCount} วัน · ขาดงาน ${p.absenceCount} วัน`}
-              value={`หัก ${formatMoney(p.leaveDeduction)} บาท`}
-              negative={p.leaveDeduction > 0}
-            />
             {p.socialSecurityDeduction > 0 && (
               <Row label="หักประกันสังคม" value={`หัก ${formatMoney(p.socialSecurityDeduction)} บาท`} negative />
             )}

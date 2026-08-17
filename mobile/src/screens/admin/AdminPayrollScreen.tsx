@@ -59,14 +59,20 @@ export function AdminPayrollScreen() {
             <Tag tone={p.absenceCount > 0 ? "late" : "ontime"} label={`ขาด ${p.absenceCount}`} />
           </View>
 
-          <Row label="เงินเดือนงวดนี้" value={formatMoney(p.periodSalary)} />
-          {p.employedDays < p.periodDays && (
-            <Text style={styles.note}>
-              เริ่มงานกลางงวด — คิดตามวันที่ทำงานจริง {p.employedDays}/{p.periodDays} วัน
-            </Text>
+          {p.wageType === "DAILY_WAGE" ? (
+            <Row label={`ค่าจ้างงวดนี้ (มาทำงาน ${p.daysWorkedInPeriod} วัน)`} value={formatMoney(p.periodSalary)} />
+          ) : (
+            <>
+              <Row label="เงินเดือนงวดนี้" value={formatMoney(p.periodSalary)} />
+              {p.employedDays < p.periodDays && (
+                <Text style={styles.note}>
+                  เริ่มงานกลางงวด — คิดตามวันที่ทำงานจริง {p.employedDays}/{p.periodDays} วัน
+                </Text>
+              )}
+              <Row label="หักสาย" value={formatMoney(p.lateDeduction)} />
+              <Row label="หักลา" value={formatMoney(p.leaveDeduction)} />
+            </>
           )}
-          <Row label="หักสาย" value={formatMoney(p.lateDeduction)} />
-          <Row label="หักลา" value={formatMoney(p.leaveDeduction)} />
           {p.socialSecurityDeduction > 0 && <Row label="หักประกันสังคม" value={formatMoney(p.socialSecurityDeduction)} />}
 
           <TextField

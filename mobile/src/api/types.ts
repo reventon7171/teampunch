@@ -1,3 +1,5 @@
+export type WageType = "MONTHLY" | "DAILY_WAGE";
+
 export interface Employee {
   id: string;
   name: string;
@@ -11,6 +13,7 @@ export interface Employee {
   active: boolean;
   dutyRotationEnabled: boolean;
   socialSecurityRate: number;
+  wageType: WageType;
   createdAt: string;
 }
 
@@ -99,9 +102,11 @@ export interface PeriodInfo {
 
 export interface PayrollBreakdown {
   info: PeriodInfo;
+  wageType: WageType;
   periodSalary: number;
   periodDays: number;
   employedDays: number;
+  daysWorkedInPeriod: number;
   lateCount: number;
   lateDeduction: number;
   leaveCount: number;

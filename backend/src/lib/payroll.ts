@@ -6,6 +6,12 @@
 export type LeaveType = "SICK" | "PERSONAL" | "VACATION";
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
 
+// MONTHLY: a flat salary, prorated only by hire date (the classic salaried employee).
+// DAILY_WAGE: no base salary at all — paid the daily rate for each day actually checked in
+// during the period, and nothing for days not worked. No late/leave deduction on top, since
+// there's no underlying salary to deduct from.
+export type WageType = "MONTHLY" | "DAILY_WAGE";
+
 export interface PayrollEmployee {
   id: string;
   baseSalary: number;
@@ -14,6 +20,7 @@ export interface PayrollEmployee {
   daysOff: number[]; // 0 (Sun) - 6 (Sat)
   hireDate: string | null; // "YYYY-MM-DD"; null only for legacy rows predating this field
   socialSecurityRate?: number; // % of this period's gross pay withheld (0-100). Defaults to 0.
+  wageType?: WageType; // defaults to "MONTHLY" if omitted
 }
 
 export interface AttendanceRecord {
@@ -222,7 +229,7 @@ export const countAbsencesInRange = (
 
 // ---------- pay periods (configurable per organization) ----------
 
-export type PayFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "SEMI_MONTHLY";
+export type PayFrequency = "WEEKLY" | "MONTHLY" | "SEMI_MONTHLY";
 
 export interface PayrollConfig {
   frequency: PayFrequency;
@@ -256,8 +263,6 @@ const lastDayOfMonth = (y: number, m: number): number => new Date(y, m, 0).getDa
 
 export const periodKeyFromDate = (dateStr: string, config: PayrollConfig): string => {
   switch (config.frequency) {
-    case "DAILY":
-      return dateStr;
     case "WEEKLY": {
       // periodKey is the END date of the 7-day block containing dateStr, anchored to
       // weeklyPayWeekday — e.g. payday=Fri means every block runs Sat...Fri
@@ -278,9 +283,6 @@ export const periodKeyFromDate = (dateStr: string, config: PayrollConfig): strin
 
 export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo => {
   switch (config.frequency) {
-    case "DAILY":
-      return { periodKey, startDate: periodKey, endDate: periodKey, payDate: periodKey, ym: periodKey.slice(0, 7) };
-
     case "WEEKLY": {
       const endDate = periodKey; // stored as the block's end date (the payday's weekday)
       const startDate = shiftDateStr(endDate, -6);
@@ -331,9 +333,6 @@ export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo
 
 export const shiftPeriod = (periodKey: string, delta: number, config: PayrollConfig): string => {
   switch (config.frequency) {
-    case "DAILY":
-      return shiftDateStr(periodKey, delta);
-
     case "WEEKLY":
       return shiftDateStr(periodKey, delta * 7);
 
@@ -362,13 +361,16 @@ export const shiftPeriod = (periodKey: string, delta: number, config: PayrollCon
 
 export interface PayrollBreakdown {
   info: PeriodInfo;
-  periodSalary: number; // gross base pay for this period, pro-rated for a mid-period hire
+  wageType: WageType;
+  periodSalary: number; // gross base pay for this period (MONTHLY: pro-rated for a mid-period
+  // hire; DAILY_WAGE: daily rate x daysWorkedInPeriod)
   periodDays: number;
   employedDays: number;
+  daysWorkedInPeriod: number; // days with an actual check-in in this period — the pay basis for DAILY_WAGE
   lateCount: number;
-  lateDeduction: number;
+  lateDeduction: number; // always 0 for DAILY_WAGE — no salary to deduct from
   leaveCount: number;
-  leaveDeduction: number;
+  leaveDeduction: number; // always 0 for DAILY_WAGE
   absenceCount: number;
   socialSecurityDeduction: number;
   advanceAmount: number;
@@ -393,36 +395,53 @@ export const computePayroll = (
   swaps: DayOffSwapRecord[] = []
 ): PayrollBreakdown => {
   const info = periodInfo(periodKey, config);
+  const wageType: WageType = emp.wageType ?? "MONTHLY";
 
-  // pro-rate a mid-period hire: someone who started partway through the period did not work
-  // every day of it, so they should not be paid as if they had. Employees hired before (or
-  // on) the period's first day get the full period salary, unaffected.
   const periodDays = daysBetweenInclusive(info.startDate, info.endDate);
-  let employedDays = periodDays;
-  if (emp.hireDate && emp.hireDate > info.endDate) {
-    employedDays = 0; // not hired yet during this period at all
-  } else if (emp.hireDate && emp.hireDate > info.startDate) {
-    employedDays = daysBetweenInclusive(emp.hireDate, info.endDate);
-  }
-  const fraction = periodDays > 0 ? employedDays / periodDays : 0;
-
-  // the period's full (un-prorated) gross pay: a flat half/whole of the monthly base salary
-  // for SEMI_MONTHLY/MONTHLY (so it's unaffected by short months like February), or the daily
-  // rate times the period length for WEEKLY/DAILY (there's no clean "always exactly X" flat
-  // figure for those, unlike a calendar half-month or month).
-  const fullPeriodSalary =
-    config.frequency === "SEMI_MONTHLY"
-      ? emp.baseSalary / 2
-      : config.frequency === "MONTHLY"
-      ? emp.baseSalary
-      : dailyRate(emp) * periodDays;
-  const periodSalary = fullPeriodSalary * fraction;
 
   const periodRecs = attendance.filter(
     (a) => a.employeeId === emp.id && a.date >= info.startDate && a.date <= info.endDate
   );
+  const daysWorkedInPeriod = periodRecs.filter((r) => !!r.checkInTime).length;
+
+  let employedDays: number;
+  let periodSalary: number;
+  let lateDeduction: number;
+
+  if (wageType === "DAILY_WAGE") {
+    // no work, no pay — the daily rate times however many days they actually checked in.
+    // Late/leave deductions don't apply on top: there's no underlying salary to dock, the
+    // employee simply wasn't paid for a day they didn't work.
+    employedDays = daysWorkedInPeriod;
+    periodSalary = dailyRate(emp) * daysWorkedInPeriod;
+    lateDeduction = 0;
+  } else {
+    // pro-rate a mid-period hire: someone who started partway through the period did not
+    // work every day of it, so they should not be paid as if they had. Employees hired
+    // before (or on) the period's first day get the full period salary, unaffected.
+    employedDays = periodDays;
+    if (emp.hireDate && emp.hireDate > info.endDate) {
+      employedDays = 0; // not hired yet during this period at all
+    } else if (emp.hireDate && emp.hireDate > info.startDate) {
+      employedDays = daysBetweenInclusive(emp.hireDate, info.endDate);
+    }
+    const fraction = periodDays > 0 ? employedDays / periodDays : 0;
+
+    // the period's full (un-prorated) gross pay: a flat half/whole of the monthly base
+    // salary for SEMI_MONTHLY/MONTHLY (so it's unaffected by short months like February), or
+    // the daily rate times the period length for WEEKLY (there's no clean "always exactly X"
+    // flat figure for a week, unlike a calendar half-month or month).
+    const fullPeriodSalary =
+      config.frequency === "SEMI_MONTHLY"
+        ? emp.baseSalary / 2
+        : config.frequency === "MONTHLY"
+        ? emp.baseSalary
+        : dailyRate(emp) * periodDays;
+    periodSalary = fullPeriodSalary * fraction;
+    lateDeduction = periodRecs.reduce((s, r) => s + (r.deductionAmount || 0), 0);
+  }
+
   const lateCount = periodRecs.filter((r) => r.lateMinutes >= 1).length;
-  const lateDeduction = periodRecs.reduce((s, r) => s + (r.deductionAmount || 0), 0);
 
   const periodApprovedLeaves = leaves.filter(
     (l) =>
@@ -432,7 +451,8 @@ export const computePayroll = (
       l.date <= info.endDate
   );
   const leaveCount = periodApprovedLeaves.length;
-  const leaveDeduction = periodApprovedLeaves.reduce((s, l) => s + leaveDeductionAmount(emp, l), 0);
+  const leaveDeduction =
+    wageType === "DAILY_WAGE" ? 0 : periodApprovedLeaves.reduce((s, l) => s + leaveDeductionAmount(emp, l), 0);
 
   const absenceCount = countAbsencesInRange(
     emp,
@@ -459,9 +479,11 @@ export const computePayroll = (
 
   return {
     info,
+    wageType,
     periodSalary,
     periodDays,
     employedDays,
+    daysWorkedInPeriod,
     lateCount,
     lateDeduction,
     leaveCount,

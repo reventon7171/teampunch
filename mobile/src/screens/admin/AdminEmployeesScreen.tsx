@@ -8,9 +8,10 @@ import { TextField } from "../../components/TextField";
 import { TimeField } from "../../components/TimeField";
 import { DateField } from "../../components/DateField";
 import { ErrorBanner } from "../../components/ErrorBanner";
+import { ChoiceModal } from "../../components/ChoiceModal";
 import { Tag } from "../../components/Tag";
 import { createEmployee, deleteEmployee, updateEmployee, listEmployees, EmployeeInput } from "../../api/employees";
-import { Employee } from "../../api/types";
+import { Employee, WageType } from "../../api/types";
 import { colors, fontSize, radius, spacing } from "../../theme";
 import { weekdayLabel, formatThaiDate } from "../../utils/format";
 import { hourlyRateOf } from "../../utils/salary";
@@ -20,6 +21,15 @@ import { formatTenure } from "../../utils/tenure";
 import { todayStr } from "../../utils/period";
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+const WAGE_TYPE_LABELS: Record<WageType, string> = {
+  MONTHLY: "เงินเดือนคงที่ (รายเดือน)",
+  DAILY_WAGE: "ค่าจ้างรายวัน (มาวันไหนได้เงินวันนั้น ไม่มาไม่ได้)",
+};
+const WAGE_TYPE_OPTIONS = (Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((v) => ({
+  label: WAGE_TYPE_LABELS[v],
+  value: v,
+}));
 
 const emptyForm: EmployeeInput = {
   name: "",
@@ -31,6 +41,7 @@ const emptyForm: EmployeeInput = {
   hireDate: todayStr(),
   dutyRotationEnabled: false,
   socialSecurityRate: 0,
+  wageType: "MONTHLY",
   username: "",
   password: "",
 };
@@ -42,6 +53,7 @@ export function AdminEmployeesScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<EmployeeInput>(emptyForm);
   const [error, setError] = useState("");
+  const [wageTypePicker, setWageTypePicker] = useState(false);
 
   const closeForm = () => {
     setShowForm(false);
@@ -61,6 +73,7 @@ export function AdminEmployeesScreen() {
       hireDate: emp.hireDate ?? todayStr(),
       dutyRotationEnabled: emp.dutyRotationEnabled,
       socialSecurityRate: emp.socialSecurityRate,
+      wageType: emp.wageType,
       username: emp.username,
       password: "",
     });
@@ -179,12 +192,38 @@ export function AdminEmployeesScreen() {
             />
           </View>
 
-          <TextField
-            label="เงินเดือนฐาน (บาท/เดือน)"
-            value={form.baseSalary ? String(form.baseSalary) : ""}
-            onChangeText={(v) => setForm({ ...form, baseSalary: Number(v.replace(/[^0-9.]/g, "")) || 0 })}
-            keyboardType="numeric"
+          <Text style={styles.label}>รูปแบบค่าจ้าง</Text>
+          <Pressable style={styles.pickBox} onPress={() => setWageTypePicker(true)}>
+            <Text style={styles.pickBoxText}>{WAGE_TYPE_LABELS[form.wageType ?? "MONTHLY"]}</Text>
+          </Pressable>
+          <ChoiceModal
+            visible={wageTypePicker}
+            title="รูปแบบค่าจ้าง"
+            options={WAGE_TYPE_OPTIONS}
+            selected={form.wageType ?? "MONTHLY"}
+            onSelect={(v) => setForm({ ...form, wageType: v as WageType })}
+            onClose={() => setWageTypePicker(false)}
           />
+
+          {form.wageType === "DAILY_WAGE" ? (
+            <TextField
+              label="ค่าจ้างต่อวัน (บาท/วัน)"
+              value={form.baseSalary ? String(Math.round((form.baseSalary / 30) * 100) / 100) : ""}
+              onChangeText={(v) => {
+                const dailyWage = Number(v.replace(/[^0-9.]/g, "")) || 0;
+                setForm({ ...form, baseSalary: dailyWage * 30 });
+              }}
+              keyboardType="numeric"
+              placeholder="เช่น 400"
+            />
+          ) : (
+            <TextField
+              label="เงินเดือนฐาน (บาท/เดือน)"
+              value={form.baseSalary ? String(form.baseSalary) : ""}
+              onChangeText={(v) => setForm({ ...form, baseSalary: Number(v.replace(/[^0-9.]/g, "")) || 0 })}
+              keyboardType="numeric"
+            />
+          )}
           <TextField
             label="หักประกันสังคม (% ของเงินเดือนแต่ละงวด)"
             value={form.socialSecurityRate ? String(form.socialSecurityRate) : ""}
@@ -241,7 +280,11 @@ export function AdminEmployeesScreen() {
               </View>
               <Text style={styles.empPosition}>{emp.position || "—"}</Text>
               <Text style={styles.empDetail}>
-                เข้า {emp.workStart} · ออก {emp.workEnd} · ฐาน {formatMoney(emp.baseSalary)} บาท/ด. · {formatMoney(hourlyRateOf(emp))} บาท/ชม.
+                เข้า {emp.workStart} · ออก {emp.workEnd} ·{" "}
+                {emp.wageType === "DAILY_WAGE"
+                  ? `ค่าจ้างรายวัน ${formatMoney(emp.baseSalary / 30)} บาท/วัน`
+                  : `เงินเดือน ${formatMoney(emp.baseSalary)} บาท/ด.`}{" "}
+                · {formatMoney(hourlyRateOf(emp))} บาท/ชม.
               </Text>
               <Text style={styles.empDetail}>
                 วันหยุดประจำสัปดาห์: {emp.daysOff.length ? emp.daysOff.map(weekdayLabel).join(", ") : "ไม่มี"}
@@ -282,6 +325,16 @@ const styles = StyleSheet.create({
   h1: { fontSize: fontSize.lg, fontWeight: "700", color: colors.ink, marginBottom: spacing.md },
   formTitle: { fontSize: fontSize.md, fontWeight: "700", color: colors.ink, marginBottom: spacing.md },
   label: { fontSize: fontSize.sm, color: colors.inkSoft, fontWeight: "600", marginBottom: spacing.xs },
+  pickBox: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.white,
+    marginBottom: spacing.md,
+  },
+  pickBoxText: { fontSize: fontSize.base, color: colors.ink },
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.md },
   switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
   switchLabel: { fontSize: fontSize.sm, color: colors.ink, fontWeight: "600", flex: 1, marginRight: spacing.sm },

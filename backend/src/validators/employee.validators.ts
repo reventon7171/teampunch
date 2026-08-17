@@ -13,6 +13,7 @@ export const createEmployeeSchema = z.object({
   hireDate: z.string().regex(dateRegex, "รูปแบบวันที่ไม่ถูกต้อง (YYYY-MM-DD)"),
   dutyRotationEnabled: z.boolean().default(false),
   socialSecurityRate: z.coerce.number().min(0).max(100).default(0),
+  wageType: z.enum(["MONTHLY", "DAILY_WAGE"]).default("MONTHLY"),
   username: z
     .string()
     .min(3, "Username ต้องมีอย่างน้อย 3 ตัวอักษร")

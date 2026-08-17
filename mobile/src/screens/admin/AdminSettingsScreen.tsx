@@ -16,7 +16,6 @@ import { useAuth } from "../../context/AuthContext";
 import { colors, fontSize, radius, spacing } from "../../theme";
 
 const FREQUENCY_LABELS: Record<PayFrequency, string> = {
-  DAILY: "รายวัน",
   WEEKLY: "รายสัปดาห์",
   MONTHLY: "รายเดือน (1 ครั้ง/เดือน)",
   SEMI_MONTHLY: "แบ่งจ่าย 2 งวด/เดือน",

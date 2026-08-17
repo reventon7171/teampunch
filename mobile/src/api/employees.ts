@@ -1,5 +1,5 @@
 import { api } from "./client";
-import { Employee } from "./types";
+import { Employee, WageType } from "./types";
 
 export interface EmployeeInput {
   name: string;
@@ -11,6 +11,7 @@ export interface EmployeeInput {
   hireDate: string;
   dutyRotationEnabled?: boolean;
   socialSecurityRate?: number;
+  wageType?: WageType;
   username: string;
   password?: string;
   active?: boolean;

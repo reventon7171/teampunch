@@ -350,23 +350,6 @@ describe("period helpers — WEEKLY", () => {
   });
 });
 
-describe("period helpers — DAILY", () => {
-  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, frequency: "DAILY" };
-
-  it("every date is its own period, paid the same day", () => {
-    expect(periodKeyFromDate("2026-08-14", config)).toBe("2026-08-14");
-    const info = periodInfo("2026-08-14", config);
-    expect(info.startDate).toBe("2026-08-14");
-    expect(info.endDate).toBe("2026-08-14");
-    expect(info.payDate).toBe("2026-08-14");
-  });
-
-  it("shiftPeriod moves by exactly 1 day", () => {
-    expect(shiftPeriod("2026-08-14", 1, config)).toBe("2026-08-15");
-    expect(shiftPeriod("2026-08-01", -1, config)).toBe("2026-07-31");
-  });
-});
-
 describe("computePayroll — SEMI_MONTHLY (default config)", () => {
   const emp: PayrollEmployee = {
     id: "e1",
@@ -515,8 +498,7 @@ describe("computePayroll — WEEKLY frequency", () => {
   });
 });
 
-describe("computePayroll — DAILY frequency", () => {
-  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, frequency: "DAILY" };
+describe("computePayroll — DAILY_WAGE wage type", () => {
   const emp: PayrollEmployee = {
     id: "e1",
     baseSalary: 30000, // dailyRate = 1000
@@ -524,17 +506,49 @@ describe("computePayroll — DAILY frequency", () => {
     workEnd: "18:00",
     daysOff: [0],
     hireDate: "2020-01-01",
+    wageType: "DAILY_WAGE",
   };
 
-  it("pays exactly one day's rate", () => {
-    const p = computePayroll(emp, "2026-08-14", config, [], [], [], 0, 0, "2026-08-14");
-    expect(p.periodDays).toBe(1);
-    expect(p.periodSalary).toBe(1000);
+  it("pays the daily rate only for days actually checked in — no work, no pay", () => {
+    const attendance: AttendanceRecord[] = [
+      { employeeId: "e1", date: "2026-08-03", checkInTime: "09:00", lateMinutes: 0, deductionAmount: 0 },
+      { employeeId: "e1", date: "2026-08-05", checkInTime: "09:30", lateMinutes: 30, deductionAmount: 111.11 },
+      // no checkInTime — a record can exist (e.g. an aborted check-in flow) without counting as worked
+      { employeeId: "e1", date: "2026-08-07", checkInTime: null, lateMinutes: 0, deductionAmount: 0 },
+    ];
+    const p = computePayroll(emp, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, attendance, [], [], 0, 0, "2026-08-15");
+    expect(p.daysWorkedInPeriod).toBe(2);
+    expect(p.periodSalary).toBe(2000); // 2 days x 1000/day
   });
 
-  it("pays zero for a day before the employee was hired", () => {
-    const notYetHired: PayrollEmployee = { ...emp, hireDate: "2026-09-01" };
-    const p = computePayroll(notYetHired, "2026-08-14", config, [], [], [], 0, 0, "2026-08-14");
-    expect(p.periodSalary).toBe(0);
+  it("never applies a late or leave deduction, even with late check-ins or approved leave", () => {
+    const attendance: AttendanceRecord[] = [
+      { employeeId: "e1", date: "2026-08-03", checkInTime: "09:30", lateMinutes: 30, deductionAmount: 111.11 },
+    ];
+    const leaves: LeaveRecord[] = [{ employeeId: "e1", date: "2026-08-04", type: "SICK", status: "APPROVED" }];
+    const p = computePayroll(emp, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, attendance, [], leaves, 0, 0, "2026-08-15");
+    expect(p.lateCount).toBe(1); // still reported for visibility...
+    expect(p.lateDeduction).toBe(0); // ...but never deducted
+    expect(p.leaveCount).toBe(1);
+    expect(p.leaveDeduction).toBe(0);
+    expect(p.net).toBe(1000); // just the one day worked, nothing subtracted
+  });
+
+  it("still applies social security as a % of the (attendance-based) period salary", () => {
+    const dailyWageWithSS: PayrollEmployee = { ...emp, socialSecurityRate: 5 };
+    const attendance: AttendanceRecord[] = [
+      { employeeId: "e1", date: "2026-08-03", checkInTime: "09:00", lateMinutes: 0, deductionAmount: 0 },
+    ];
+    const p = computePayroll(dailyWageWithSS, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, attendance, [], [], 0, 0, "2026-08-15");
+    // periodSalary 1000 * 5% = 50
+    expect(p.socialSecurityDeduction).toBe(50);
+    expect(p.net).toBe(950);
+  });
+
+  it("defaults to MONTHLY (the old flat-salary behavior) when wageType is omitted", () => {
+    const noWageType: PayrollEmployee = { ...emp, wageType: undefined };
+    const p = computePayroll(noWageType, "2026-08-H1", DEFAULT_PAYROLL_CONFIG, [], [], [], 0, 0, "2026-08-15");
+    expect(p.wageType).toBe("MONTHLY");
+    expect(p.periodSalary).toBe(15000); // half of 30000, same as any other MONTHLY employee
   });
 });

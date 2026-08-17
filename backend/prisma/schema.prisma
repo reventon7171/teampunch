@@ -69,6 +69,7 @@ model Employee {
   active       Boolean  @default(true)
   dutyRotationEnabled Boolean @default(false) // opts this employee into the random daily cleaning-duty rotation at check-in (previously hardcoded to position === "เสิร์ฟ")
   socialSecurityRate Decimal @default(0) @db.Decimal(5, 2) // % deducted from this employee's gross pay each period (0 = no deduction). Percent of that period's pay, not a flat monthly figure.
+  wageType     String   @default("MONTHLY") // MONTHLY (flat salary, prorated by hire date) | DAILY_WAGE (paid baseSalary/30 for each day actually checked in that period, nothing for days not worked — no late/leave deduction layered on top since there's no base salary to deduct from)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
