@@ -1,10 +1,14 @@
-// Small map thumbnail built from a single raw OpenStreetMap XYZ tile (tile.openstreetmap.org) —
-// there is no free "static map with marker" OSM service that reliably exists, so instead we
-// fetch the one tile the point falls in and position our own pin marker over it in JS/RN,
-// using the standard slippy-map tile math (https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames).
+// Small map thumbnail built from a single raster XYZ tile, with our own pin marker positioned
+// over it in JS/RN, using the standard slippy-map tile math
+// (https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames).
 //
-// Volume here is trivial (a handful of check-ins/outs a day for ~10 staff), well within OSM's
-// tile usage policy for casual/low-volume use — no API key needed.
+// Uses CARTO's free basemap tiles (basemaps.cartocdn.com), not tile.openstreetmap.org directly —
+// OSM's own tile server started serving a watermarked "Access blocked" placeholder tile instead
+// of the real tile for requests from the packaged app (their tile usage policy blocks generic/
+// bulk-looking mobile-app traffic; a raw curl from a dev machine still works fine, which is what
+// made this confusing to first diagnose). CARTO's basemaps are meant for exactly this kind of
+// light embedded use and don't require an API key at this volume (a handful of check-ins/outs a
+// day for ~10 staff).
 const TILE_SIZE = 256;
 
 const lonToWorldX = (lon: number, zoom: number) => ((lon + 180) / 360) * TILE_SIZE * 2 ** zoom;
@@ -26,7 +30,7 @@ export const getMapTileInfo = (lat: number, lng: number, zoom = 16): MapTileInfo
   const tileX = Math.floor(worldX / TILE_SIZE);
   const tileY = Math.floor(worldY / TILE_SIZE);
   return {
-    tileUrl: `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`,
+    tileUrl: `https://basemaps.cartocdn.com/light_all/${zoom}/${tileX}/${tileY}.png`,
     pinXFraction: worldX / TILE_SIZE - tileX,
     pinYFraction: worldY / TILE_SIZE - tileY,
   };
