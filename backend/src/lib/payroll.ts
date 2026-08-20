@@ -227,11 +227,11 @@ export const shiftDateStr = (dateStr: string, deltaDays: number): string => {
 const daysBetweenInclusive = (startDate: string, endDate: string): number =>
   Math.round((dateAt(endDate).getTime() - dateAt(startDate).getTime()) / 86400000) + 1;
 
-// count days in [startDate, endDate] (inclusive, capped to today, and never before the
-// employee's hireDate — someone hired mid-period was not employed yet on the earlier days,
-// so those are not absences) where the employee has no attendance check-in, is not on a
-// weekly day off, not a company holiday, and has no approved leave
-export const countAbsencesInRange = (
+// dates in [startDate, endDate] (inclusive, capped to today, and never before the employee's
+// hireDate — someone hired mid-period was not employed yet on the earlier days, so those are
+// not absences) where the employee has no attendance check-in, is not on a weekly day off,
+// not a company holiday, and has no approved leave
+export const absenceDatesInRange = (
   emp: Pick<PayrollEmployee, "id" | "daysOff" | "hireDate">,
   startDate: string,
   endDate: string,
@@ -240,11 +240,11 @@ export const countAbsencesInRange = (
   leaves: LeaveRecord[],
   today: string = todayStr(),
   swaps: DayOffSwapRecord[] = []
-): number => {
+): string[] => {
   const cappedEnd = endDate > today ? today : endDate;
   const cappedStart = emp.hireDate && emp.hireDate > startDate ? emp.hireDate : startDate;
-  if (cappedEnd < cappedStart) return 0; // period hasn't started yet, or employee wasn't hired yet
-  let count = 0;
+  if (cappedEnd < cappedStart) return []; // period hasn't started yet, or employee wasn't hired yet
+  const dates: string[] = [];
   let cur = dateAt(cappedStart);
   const last = dateAt(cappedEnd);
   while (cur <= last) {
@@ -255,12 +255,23 @@ export const countAbsencesInRange = (
       !findApprovedLeave(leaves, emp.id, dateStr)
     ) {
       const rec = attendance.find((a) => a.employeeId === emp.id && a.date === dateStr);
-      if (!rec || !rec.checkInTime) count++;
+      if (!rec || !rec.checkInTime) dates.push(dateStr);
     }
     cur.setDate(cur.getDate() + 1);
   }
-  return count;
+  return dates;
 };
+
+export const countAbsencesInRange = (
+  emp: Pick<PayrollEmployee, "id" | "daysOff" | "hireDate">,
+  startDate: string,
+  endDate: string,
+  attendance: AttendanceRecord[],
+  holidays: HolidayRecord[],
+  leaves: LeaveRecord[],
+  today: string = todayStr(),
+  swaps: DayOffSwapRecord[] = []
+): number => absenceDatesInRange(emp, startDate, endDate, attendance, holidays, leaves, today, swaps).length;
 
 // ---------- pay periods (configurable per organization) ----------
 
@@ -434,6 +445,7 @@ export interface PayrollBreakdown {
   leaveCount: number;
   leaveDeduction: number; // always 0 for DAILY_WAGE
   absenceCount: number;
+  absenceDates: string[]; // "YYYY-MM-DD" for each day counted in absenceCount, for drill-down UI
   dailyWageAbsenceDeduction: number; // always 0 unless wageType=DAILY_WAGE and the org opted into it
   socialSecurityDeduction: number;
   advanceAmount: number;
@@ -520,16 +532,8 @@ export const computePayroll = (
   const leaveDeduction =
     wageType === "DAILY_WAGE" ? 0 : periodApprovedLeaves.reduce((s, l) => s + leaveDeductionAmount(emp, l), 0);
 
-  const absenceCount = countAbsencesInRange(
-    emp,
-    info.startDate,
-    info.endDate,
-    attendance,
-    holidays,
-    leaves,
-    today,
-    swaps
-  );
+  const absenceDates = absenceDatesInRange(emp, info.startDate, info.endDate, attendance, holidays, leaves, today, swaps);
+  const absenceCount = absenceDates.length;
 
   // optional extra penalty for daily-wage employees on top of simply not being paid for the
   // day — off by default (dailyWageDeductAbsence=false), and never applies to MONTHLY staff
@@ -580,6 +584,7 @@ export const computePayroll = (
     leaveCount,
     leaveDeduction,
     absenceCount,
+    absenceDates,
     dailyWageAbsenceDeduction,
     socialSecurityDeduction,
     advanceAmount,

@@ -89,8 +89,9 @@ git push
    - **แอดมินกรอกจำนวนเงิน OT เองได้ตอนอนุมัติ** — `OvertimeRequest.approvedAmount` (nullable) ตอนแอดมินกด "อนุมัติ" ในแอป จะมีช่องกรอกบาทเติมให้อัตโนมัติจากสูตร (ชม. × ค่าแรง/ชม. × `otRateMultiplier`) แต่แก้ตัวเลขเองก่อนกดยืนยันได้ ถ้าแก้ `approvedAmount` จะถูกใช้แทนสูตรตอนคำนวณเงินเดือน (ถ้า null = ใช้สูตรตามปกติ) — ปฏิเสธคำขอจะล้างค่านี้ทิ้งเสมอ กันเลขค้างจากรอบอนุมัติเก่า
    - ยังไม่ทำ: แยกอัตราวันหยุด/วันทำงาน, เพดานชั่วโมง OT ต่อครั้ง, ปัดเศษเวลา, การอนุมัติหลายระดับ — ถ้าจะทำเพิ่มดูวิธี HumanSoft ทำไว้ในบทสนทนาเดิม
 11. **แก้บั๊ก: กล่องแผนที่เล็กๆ ตอนเช็คอินขึ้น "Access blocked" แทนรูปแผนที่** — สาเหตุคือ `tile.openstreetmap.org` (ที่ `mobile/src/utils/staticMap.ts` ใช้ทำรูปแผนที่ย่อ) เริ่มบล็อก request จากแอปที่แพ็กแล้ว (ส่งรูป tile ที่มีคำว่า "Access blocked" มาแทน) เพราะ OSM มี usage policy บล็อก bulk/generic mobile traffic — curl ทดสอบจากเครื่อง dev เฉยๆ ผ่านปกติ เลยกว่าจะเจอสาเหตุจริงต้องให้ผู้ใช้ report ก่อน เปลี่ยนไปใช้ CARTO free basemap tiles (`basemaps.cartocdn.com/light_all`) แทน ไม่ต้องใช้ API key เหมือนเดิม — ถ้าเจอปัญหาแผนที่บล็อกอีกในอนาคต ให้สงสัย tile provider เป็นอันดับแรก
+12. **"ขาด" (absenceCount) กดดูรายวันที่ขาดได้** — เพิ่ม `absenceDatesInRange` ใน `payroll.ts` (คืน `string[]` ของวันที่ขาด, `countAbsencesInRange` ตอนนี้เป็นแค่ `.length` ของอันนี้แทนที่จะมี logic ซ้ำ) `PayrollBreakdown` มีฟิลด์ `absenceDates` เพิ่ม — มือถือมี component ใหม่ `DateListModal` (bottom-sheet แสดงลิสต์วันที่ + วันในสัปดาห์) ใช้ที่ 3 หน้า: หน้าตอกบัตร (StatCard "ขาด"), หน้าเงินเดือนพนักงาน (MyPayrollScreen), หน้าเงินเดือนแอดมิน (AdminPayrollScreen — กดที่ Tag "ขาด" ของพนักงานแต่ละคน) กดได้เฉพาะตอน `absenceCount > 0`
 
-Unit test ของ payroll engine: **78 ข้อ ผ่านหมด** (`backend/src/lib/payroll.test.ts`) — เป็นจุดที่ business logic ซับซ้อนที่สุดของระบบ ถ้าจะแก้อะไรเกี่ยวกับเงินเดือนอีก ให้รันเทสต์นี้ก่อน/หลังเสมอ
+Unit test ของ payroll engine: **79 ข้อ ผ่านหมด** (`backend/src/lib/payroll.test.ts`) — เป็นจุดที่ business logic ซับซ้อนที่สุดของระบบ ถ้าจะแก้อะไรเกี่ยวกับเงินเดือนอีก ให้รันเทสต์นี้ก่อน/หลังเสมอ
 
 ## 6. แอปเดิม (บขส. บาร์) — อย่าไปยุ่ง
 

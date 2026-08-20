@@ -8,6 +8,7 @@ import { Tag } from "../../components/Tag";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { StampedCapture, StampedCaptureHandle } from "../../components/StampedCapture";
 import { ChoiceModal } from "../../components/ChoiceModal";
+import { DateListModal } from "../../components/DateListModal";
 import { useAuth } from "../../context/AuthContext";
 import { checkIn, getTodayStatus, PunchPhoto } from "../../api/attendance";
 import { getMyPayroll } from "../../api/payroll";
@@ -34,6 +35,7 @@ export function PunchScreen() {
 
   const shiftsQuery = useQuery({ queryKey: ["shifts"], queryFn: listShifts });
   const [shiftPickerOpen, setShiftPickerOpen] = useState(false);
+  const [showAbsences, setShowAbsences] = useState(false);
   const switchShiftMutation = useMutation({
     mutationFn: (shiftId: string) => setMyShift(shiftId),
     onSuccess: (updated) => {
@@ -221,7 +223,7 @@ export function PunchScreen() {
           <>
             <Text style={styles.statsHeading}>สถิติงวดนี้</Text>
             <View style={styles.statsGrid}>
-              <StatCard label="ขาด" value={p.absenceCount} />
+              <StatCard label="ขาด" value={p.absenceCount} onPress={p.absenceCount > 0 ? () => setShowAbsences(true) : undefined} />
               <StatCard label="ลา" value={p.leaveCount} />
               <StatCard label="สาย" value={p.lateCount} />
             </View>
@@ -229,6 +231,13 @@ export function PunchScreen() {
         )}
       </View>
       </ScrollView>
+
+      <DateListModal
+        visible={showAbsences}
+        title={`วันที่ขาดงาน (${p?.absenceCount ?? 0} วัน)`}
+        dates={p?.absenceDates ?? []}
+        onClose={() => setShowAbsences(false)}
+      />
     </View>
   );
 }
@@ -254,12 +263,12 @@ function ScrollHeader({
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({ label, value, onPress }: { label: string; value: number; onPress?: () => void }) {
   return (
-    <View style={styles.statCard}>
+    <Pressable style={styles.statCard} onPress={onPress} disabled={!onPress}>
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={styles.statValue}>{value}</Text>
-    </View>
+    </Pressable>
   );
 }
 

@@ -99,6 +99,7 @@ export interface PayrollBreakdown {
   leaveCount: number;
   leaveDeduction: number;
   absenceCount: number;
+  absenceDates: string[];
   dailyWageAbsenceDeduction: number;
   socialSecurityDeduction: number;
   advanceAmount: number;

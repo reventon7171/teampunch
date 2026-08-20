@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
 import { PeriodSwitcher } from "../../components/PeriodSwitcher";
 import { TextField } from "../../components/TextField";
 import { Tag } from "../../components/Tag";
+import { DateListModal } from "../../components/DateListModal";
 import { getAllPayroll, setAdvance, setCommission } from "../../api/payroll";
 import { periodInfo, periodKeyFromDate, todayStr } from "../../utils/period";
 import { usePayrollConfig } from "../../hooks/usePayrollConfig";
@@ -26,6 +27,8 @@ export function AdminPayrollScreen() {
       setAdvance(employeeId, periodKey, amount),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["adminPayroll", periodKey] }),
   });
+
+  const [absenceEmployeeId, setAbsenceEmployeeId] = useState<string | null>(null);
 
   const info = periodInfo(periodKey, config);
   const commissionMutation = useMutation({
@@ -56,7 +59,9 @@ export function AdminPayrollScreen() {
           <View style={styles.tagsRow}>
             <Tag tone={p.lateCount > 0 ? "late" : "ontime"} label={`สาย ${p.lateCount}`} />
             <Tag tone="pending" label={`ลา ${p.leaveCount}`} />
-            <Tag tone={p.absenceCount > 0 ? "late" : "ontime"} label={`ขาด ${p.absenceCount}`} />
+            <Pressable onPress={() => p.absenceCount > 0 && setAbsenceEmployeeId(p.employeeId)} disabled={p.absenceCount === 0}>
+              <Tag tone={p.absenceCount > 0 ? "late" : "ontime"} label={`ขาด ${p.absenceCount}${p.absenceCount > 0 ? " ›" : ""}`} />
+            </Pressable>
           </View>
 
           {p.wageType === "DAILY_WAGE" ? (
@@ -112,6 +117,13 @@ export function AdminPayrollScreen() {
           </View>
         </Card>
       ))}
+
+      <DateListModal
+        visible={!!absenceEmployeeId}
+        title={`วันที่ขาดงาน — ${rows?.find((r) => r.employeeId === absenceEmployeeId)?.name ?? ""}`}
+        dates={rows?.find((r) => r.employeeId === absenceEmployeeId)?.absenceDates ?? []}
+        onClose={() => setAbsenceEmployeeId(null)}
+      />
     </Screen>
   );
 }

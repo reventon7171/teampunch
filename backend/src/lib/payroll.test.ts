@@ -4,6 +4,7 @@ import {
   computeLateMinutes,
   isCheckOutTooLate,
   overtimeDurationHours,
+  absenceDatesInRange,
   shiftDateStr,
   lateDeductionHours,
   lateDeductionAmount,
@@ -222,6 +223,13 @@ describe("countAbsencesInRange", () => {
     );
     // 10(Mon, no checkin -> absent), 11(Tue absent), 12(holiday, skip), 13(leave, skip), 14(Fri absent)
     expect(count).toBe(3);
+  });
+
+  it("absenceDatesInRange returns the same days countAbsencesInRange counts", () => {
+    const holidays = [{ date: "2026-08-12", name: "Test holiday" }];
+    const leaves: LeaveRecord[] = [{ employeeId: "e1", date: "2026-08-13", type: "SICK", status: "APPROVED" }];
+    const dates = absenceDatesInRange(emp, "2026-08-10", "2026-08-14", [], holidays, leaves, "2026-08-20");
+    expect(dates).toEqual(["2026-08-10", "2026-08-11", "2026-08-14"]);
   });
 
   it("does not count a day with a check-in as absent", () => {

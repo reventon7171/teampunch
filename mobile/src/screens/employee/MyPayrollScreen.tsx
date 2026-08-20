@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Screen } from "../../components/Screen";
 import { Card } from "../../components/Card";
 import { PeriodSwitcher } from "../../components/PeriodSwitcher";
+import { DateListModal } from "../../components/DateListModal";
 import { getMyPayroll } from "../../api/payroll";
 import { getMyAttendance } from "../../api/attendance";
 import { periodKeyFromDate, todayStr } from "../../utils/period";
@@ -19,6 +20,7 @@ export function MyPayrollScreen() {
     queryFn: () => getMyPayroll(periodKey),
   });
   const { data: attendance } = useQuery({ queryKey: ["myAttendance"], queryFn: getMyAttendance });
+  const [showAbsences, setShowAbsences] = useState(false);
 
   const lateDays = (attendance ?? [])
     .filter((r) => p && r.date >= p.info.startDate && r.date <= p.info.endDate && r.lateMinutes >= 1)
@@ -65,10 +67,20 @@ export function MyPayrollScreen() {
                   </View>
                 )}
                 <Row
-                  label={`ลาที่อนุมัติแล้ว ${p.leaveCount} วัน · ขาดงาน ${p.absenceCount} วัน`}
+                  label={`ลาที่อนุมัติแล้ว ${p.leaveCount} วัน`}
                   value={`หัก ${formatMoney(p.leaveDeduction)} บาท`}
                   negative={p.leaveDeduction > 0}
                 />
+                <Pressable
+                  style={styles.row}
+                  onPress={() => setShowAbsences(true)}
+                  disabled={p.absenceCount === 0}
+                >
+                  <Text style={[styles.rowLabel, p.absenceCount > 0 && styles.rowLabelLink]}>
+                    ขาดงาน {p.absenceCount} วัน
+                  </Text>
+                  {p.absenceCount > 0 && <Text style={styles.rowLabelLink}>ดูวันที่ ›</Text>}
+                </Pressable>
               </>
             )}
             {p.socialSecurityDeduction > 0 && (
@@ -91,6 +103,13 @@ export function MyPayrollScreen() {
           </View>
         )}
       </Card>
+
+      <DateListModal
+        visible={showAbsences}
+        title={`วันที่ขาดงาน (${p?.absenceCount ?? 0} วัน)`}
+        dates={p?.absenceDates ?? []}
+        onClose={() => setShowAbsences(false)}
+      />
     </Screen>
   );
 }
@@ -108,6 +127,7 @@ const styles = StyleSheet.create({
   h1: { fontSize: fontSize.xl, fontWeight: "700", color: colors.ink, marginBottom: spacing.lg },
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.xs },
   rowLabel: { fontSize: fontSize.base, color: colors.inkSoft, flexShrink: 1, marginRight: spacing.sm },
+  rowLabelLink: { color: colors.navy, fontWeight: "600" },
   rowValue: { fontSize: fontSize.base, color: colors.ink, fontWeight: "600" },
   lateList: {
     backgroundColor: colors.redBg,
