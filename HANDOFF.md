@@ -90,6 +90,7 @@ git push
    - ยังไม่ทำ: แยกอัตราวันหยุด/วันทำงาน, เพดานชั่วโมง OT ต่อครั้ง, ปัดเศษเวลา, การอนุมัติหลายระดับ — ถ้าจะทำเพิ่มดูวิธี HumanSoft ทำไว้ในบทสนทนาเดิม
 11. **แก้บั๊ก: กล่องแผนที่เล็กๆ ตอนเช็คอินขึ้น "Access blocked" แทนรูปแผนที่** — สาเหตุคือ `tile.openstreetmap.org` (ที่ `mobile/src/utils/staticMap.ts` ใช้ทำรูปแผนที่ย่อ) เริ่มบล็อก request จากแอปที่แพ็กแล้ว (ส่งรูป tile ที่มีคำว่า "Access blocked" มาแทน) เพราะ OSM มี usage policy บล็อก bulk/generic mobile traffic — curl ทดสอบจากเครื่อง dev เฉยๆ ผ่านปกติ เลยกว่าจะเจอสาเหตุจริงต้องให้ผู้ใช้ report ก่อน เปลี่ยนไปใช้ CARTO free basemap tiles (`basemaps.cartocdn.com/light_all`) แทน ไม่ต้องใช้ API key เหมือนเดิม — ถ้าเจอปัญหาแผนที่บล็อกอีกในอนาคต ให้สงสัย tile provider เป็นอันดับแรก
 12. **"ขาด" (absenceCount) กดดูรายวันที่ขาดได้** — เพิ่ม `absenceDatesInRange` ใน `payroll.ts` (คืน `string[]` ของวันที่ขาด, `countAbsencesInRange` ตอนนี้เป็นแค่ `.length` ของอันนี้แทนที่จะมี logic ซ้ำ) `PayrollBreakdown` มีฟิลด์ `absenceDates` เพิ่ม — มือถือมี component ใหม่ `DateListModal` (bottom-sheet แสดงลิสต์วันที่ + วันในสัปดาห์) ใช้ที่ 3 หน้า: หน้าตอกบัตร (StatCard "ขาด"), หน้าเงินเดือนพนักงาน (MyPayrollScreen), หน้าเงินเดือนแอดมิน (AdminPayrollScreen — กดที่ Tag "ขาด" ของพนักงานแต่ละคน) กดได้เฉพาะตอน `absenceCount > 0`
+13. **กู้รหัสผ่านแอดมิน + ระบบ backup database** — รายละเอียดเต็มและ**ขั้นตอนที่ต้องไปตั้งค่าเองใน Resend/Railway/UptimeRobot** อยู่ที่หัวข้อ 9 ด้านล่าง (สำคัญ — ฟีเจอร์เหล่านี้ยังใช้งานไม่ได้เต็มที่จนกว่าจะตั้งค่าเสร็จ)
 
 Unit test ของ payroll engine: **79 ข้อ ผ่านหมด** (`backend/src/lib/payroll.test.ts`) — เป็นจุดที่ business logic ซับซ้อนที่สุดของระบบ ถ้าจะแก้อะไรเกี่ยวกับเงินเดือนอีก ให้รันเทสต์นี้ก่อน/หลังเสมอ
 
@@ -122,6 +123,50 @@ Unit test ของ payroll engine: **79 ข้อ ผ่านหมด** (`bac
   npx prisma generate
   ```
   Railway จะรัน `prisma migrate deploy` เองตอน deploy (อยู่ใน `npm run start` script)
+
+## 9. ความปลอดภัย/reliability (กู้รหัสผ่าน, backup, แจ้งเตือนระบบล่ม) — ต้องตั้งค่าเองก่อนใช้งานได้จริง
+
+โค้ดทำเสร็จหมดแล้ว แต่ 3 เรื่องนี้ต้องมีบัญชี/ตั้งค่าที่ Claude สร้างให้ไม่ได้ (นโยบายความปลอดภัย — สร้างบัญชีให้ผู้ใช้ไม่ได้) Ton ต้องทำเองตามขั้นตอนนี้:
+
+### 9.1 กู้รหัสผ่านแอดมิน (ทำงานแล้ว แต่ต้องมี Resend API key ถึงจะส่งอีเมลได้จริง)
+
+- Schema: `Admin.email` (nullable), `Admin.resetCodeHash` + `resetCodeExpiresAt` (รหัส 6 หลัก, hash ด้วย sha256, อายุ 15 นาที) — migration `add_admin_password_reset`
+- Flow: หน้า login แอดมิน → "ลืมรหัสผ่าน?" → กรอก slug+username → ถ้า admin คนนั้นมี email ผูกไว้ ระบบส่งรหัส 6 หลักไปทางอีเมล (endpoint ตอบข้อความเดียวกันเสมอไม่ว่าจะเจอ username หรือไม่ กัน user enumeration) → กรอกรหัส + ตั้งรหัสผ่านใหม่
+- แอดมินต้องตั้งอีเมลของตัวเองก่อนที่ **ตั้งค่า → อีเมลกู้คืนรหัสผ่าน** ถึงจะกู้รหัสผ่านได้ (ไม่มีอีเมลผูกไว้ = กู้ไม่ได้ ต้องแก้ใน database ตรงๆ เหมือนเดิม)
+- **ต้องทำ**: สมัคร https://resend.com (free tier 3,000 อีเมล/เดือน) → เอา API key มาใส่ Railway env var `RESEND_API_KEY` → ถ้ายังไม่ verify custom domain, ใช้ `RESEND_FROM_EMAIL` default (`TeamPunch <onboarding@resend.dev>`) ได้เลย **แต่ sandbox แบบนี้ส่งได้เฉพาะไปที่อีเมลที่สมัคร Resend account เท่านั้น** — พอพร้อมเปิดใช้จริงกับแอดมินหลายคน/หลาย org ต้อง verify domain ของตัวเองใน Resend ก่อน แล้วเปลี่ยน `RESEND_FROM_EMAIL` เป็นโดเมนนั้น
+
+### 9.2 Backup database ทุกคืน (โค้ดพร้อมแล้ว ต้องสร้าง Railway Cron Job เอง)
+
+- Script: `backend/src/scripts/backupDatabase.ts` → `pg_dump --format=custom` แล้วอัปโหลดขึ้น R2 bucket เดิม (ที่ใช้เก็บรูป) ใต้ prefix `backups/` เก็บย้อนหลัง 14 ชุด (ลบของเก่าอัตโนมัติ)
+- เพิ่ม `backend/nixpacks.toml` ติดตั้ง `postgresql-client` (pg_dump) เข้า build image
+- npm script: `npm run backup` (รัน `dist/src/scripts/backupDatabase.js`)
+- **ต้องทำใน Railway dashboard**:
+  1. เปิดโปรเจกต์ `resilient-benevolence` → "+ New" → "GitHub Repo" → เลือก repo เดิม (`reventon7171/teampunch`)
+  2. ตั้งชื่อ service เช่น `teampunch-backup`, Root Directory = `backend`
+  3. ไปที่ Settings ของ service ใหม่นี้ → **Deploy → Custom Start Command** ใส่ `npm run backup` (อย่าใช้ `npm start` เพราะจะรัน `prisma migrate deploy` + เปิด server ทับซ้อนกับตัวหลัก)
+  4. Settings → **Cron Schedule** ตั้งเป็น `0 20 * * *` (20:00 UTC = ตี 3 เวลาไทย ทุกคืน)
+  5. Copy env vars จาก service หลักมาใส่ service นี้ด้วย (อย่างน้อย `DATABASE_URL`, `JWT_SECRET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`) — หรือใช้ Railway "Shared Variables" ถ้าอยากผูกอัตโนมัติ
+  6. กด Deploy แล้วลอง "Run now" ดูสักครั้งว่าผ่าน — เช็คใน R2 bucket ว่ามีไฟล์ `backups/teampunch-....dump` ขึ้นมาจริง
+- **กู้คืนข้อมูลตอนจำเป็น**: โหลดไฟล์ `.dump` จาก R2 มาเครื่อง แล้ว `pg_restore --clean --no-owner -d "$DATABASE_URL" ไฟล์.dump`
+
+### 9.3 แจ้งเตือนถ้า backend ล่ม ทาง email (ยังไม่ได้ตั้งค่า — ต้องทำเองทั้งหมด ไม่มีโค้ดเกี่ยวข้อง)
+
+backend ที่ล่มอยู่ ส่งอีเมลแจ้งตัวเองไม่ได้ ต้องใช้บริการภายนอกคอย ping แทน:
+
+1. สมัคร https://uptimerobot.com (free tier พอสำหรับใช้งานนี้)
+2. สร้าง Monitor ใหม่ → Monitor Type: **HTTP(s)** → URL: `https://teampunch-production.up.railway.app/health` → Monitoring Interval: 5 นาที
+3. ตั้ง Alert Contact เป็นอีเมลที่ต้องการรับแจ้งเตือน (`wuttiwat.pint@gmail.com`)
+4. เสร็จแล้ว — ถ้า `/health` ตอบไม่ได้ 2 รอบติดกัน (~10 นาที) จะมีอีเมลแจ้งทันที และแจ้งอีกทีตอนกลับมาใช้ได้ปกติ
+
+### 9.4 ตรวจสอบความปลอดภัยเพิ่มเติม (สรุปจากการรีวิวโค้ด)
+
+**ที่ดีอยู่แล้ว**: bcrypt 12 rounds, JWT เก็บใน SecureStore (มือถือ), helmet+CORS, rate limit หน้า login/register/forgot-password, multer จำกัดชนิด/ขนาดไฟล์รูป, รูปเช็คอิน proxy ผ่าน backend ไม่ใช่ public URL, `.env` ไม่เคย commit, `npm audit` = 0 vulnerabilities, ทุก query scope ด้วย organizationId ถูกต้อง
+
+**ยังไม่ได้ทำ (ทำต่อได้ถ้าต้องการ)**:
+- Rate limit มีแค่หน้า auth — endpoint อื่น (check-in, สร้างพนักงาน ฯลฯ) ยังไม่มี ความเสี่ยงต่ำเพราะต้อง login ก่อนแต่ควรมีกันสแปม/DoS เบาๆ
+- ไม่มี audit log — ถ้าแอดมินลบ/แก้ข้อมูลผิด ไม่มีประวัติว่าใครทำอะไรเมื่อไหร่
+- Resend sandbox (`onboarding@resend.dev`) จำกัดส่งได้แค่อีเมลเดียว (ดูหัวข้อ 9.1) — ต้อง verify domain ก่อนเปิดให้แอดมินหลายคนใช้กู้รหัสผ่านจริง
+- ยังไม่มี 2FA สำหรับแอดมิน (โอเคสำหรับสเกลตอนนี้)
 
 ---
 

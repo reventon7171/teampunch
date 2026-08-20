@@ -99,6 +99,14 @@ model Admin {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   username       String
   passwordHash   String
+  // Optional — null until the admin sets one (existing admins from before this field existed
+  // have none). Required for the "ลืมรหัสผ่าน" flow: without an email on file, there is no
+  // way to prove who's asking, so forgot-password silently no-ops for that admin.
+  email          String?
+  // A 6-digit code emailed to `email` when password reset is requested — hashed at rest (never
+  // store the plain code) with a short expiry. Both null outside of an active reset request.
+  resetCodeHash  String?
+  resetCodeExpiresAt DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

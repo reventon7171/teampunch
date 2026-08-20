@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Screen } from "../components/Screen";
 import { Card } from "../components/Card";
 import { TextField } from "../components/TextField";
@@ -8,7 +9,7 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { useAuth } from "../context/AuthContext";
 import { colors, fontSize, spacing } from "../theme";
 
-export function AdminLoginScreen() {
+export function AdminLoginScreen({ navigation }: NativeStackScreenProps<any>) {
   const { loginAdmin, error, clearError, lastSlug } = useAuth();
   const [slug, setSlug] = useState(lastSlug);
   const [username, setUsername] = useState("");
@@ -44,6 +45,9 @@ export function AdminLoginScreen() {
           loading={loading}
           fullWidth
         />
+        <Pressable style={styles.forgotLink} onPress={() => navigation.navigate("AdminForgotPassword")}>
+          <Text style={styles.forgotLinkText}>ลืมรหัสผ่าน?</Text>
+        </Pressable>
       </Card>
     </Screen>
   );
@@ -52,4 +56,6 @@ export function AdminLoginScreen() {
 const styles = StyleSheet.create({
   title: { fontSize: fontSize.xl, fontWeight: "700", color: colors.ink, marginBottom: spacing.xs },
   sub: { fontSize: fontSize.base, color: colors.inkSoft, marginBottom: spacing.lg },
+  forgotLink: { alignSelf: "center", paddingVertical: spacing.sm, marginTop: spacing.xs },
+  forgotLinkText: { fontSize: fontSize.sm, color: colors.navy, fontWeight: "600", textDecorationLine: "underline" },
 });

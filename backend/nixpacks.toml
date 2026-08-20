@@ -1,0 +1,4 @@
+# postgresql-client provides pg_dump, used by scripts/backupDatabase.ts (the nightly Railway
+# Cron Job service) — Nixpacks' default Node.js image doesn't include it.
+[phases.setup]
+aptPkgs = ["postgresql-client"]

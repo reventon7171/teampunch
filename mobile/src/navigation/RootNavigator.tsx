@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme";
 import { LoginHomeScreen } from "../screens/LoginHomeScreen";
 import { AdminLoginScreen } from "../screens/AdminLoginScreen";
+import { AdminForgotPasswordScreen } from "../screens/AdminForgotPasswordScreen";
 import { AdminRegisterScreen } from "../screens/AdminRegisterScreen";
 import { EmployeeLoginScreen } from "../screens/EmployeeLoginScreen";
 import { AdminTabs } from "./AdminTabs";
@@ -17,6 +18,11 @@ function LoginStack() {
     <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.brandDark }, headerTintColor: "#F2EFE4" }}>
       <Stack.Screen name="LoginHome" component={LoginHomeScreen} options={{ title: "TeamPunch" }} />
       <Stack.Screen name="AdminLogin" component={AdminLoginScreen} options={{ title: "เข้าสู่ระบบแอดมิน" }} />
+      <Stack.Screen
+        name="AdminForgotPassword"
+        component={AdminForgotPasswordScreen}
+        options={{ title: "ลืมรหัสผ่าน" }}
+      />
       <Stack.Screen name="AdminRegister" component={AdminRegisterScreen} options={{ title: "สมัครใช้งานฟรี" }} />
       <Stack.Screen name="EmployeeLogin" component={EmployeeLoginScreen} options={{ title: "เข้าสู่ระบบพนักงาน" }} />
     </Stack.Navigator>

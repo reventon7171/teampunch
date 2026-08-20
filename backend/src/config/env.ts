@@ -19,6 +19,15 @@ const envSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET_NAME: z.string().optional(),
+
+  // Resend (email) — optional. Used for the admin password-reset code. When missing,
+  // email.ts logs the email instead of sending it (fine for dev, not for production).
+  RESEND_API_KEY: z.string().optional(),
+  // Resend's shared sandbox address works with zero setup but can only deliver to the email
+  // address the Resend account itself was signed up with — fine while every admin's reset
+  // email is that same address (pre-launch/friends-only), but switch to a verified custom
+  // domain address before this needs to reach admins generally.
+  RESEND_FROM_EMAIL: z.string().default("TeamPunch <onboarding@resend.dev>"),
 });
 
 const parsed = envSchema.safeParse(process.env);

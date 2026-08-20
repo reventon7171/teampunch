@@ -9,7 +9,14 @@ import { TextField } from "../../components/TextField";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { ChoiceModal } from "../../components/ChoiceModal";
 import { TimeField } from "../../components/TimeField";
-import { changeAdminPassword, getWorkplaceLocation, setWorkplaceLocation, WorkplaceLocation } from "../../api/auth";
+import {
+  changeAdminPassword,
+  getAdminMe,
+  setAdminEmail,
+  getWorkplaceLocation,
+  setWorkplaceLocation,
+  WorkplaceLocation,
+} from "../../api/auth";
 import { getPayrollSettings, setPayrollSettings } from "../../api/payrollSettings";
 import { getBilling } from "../../api/billing";
 import { listShifts, createShift, updateShift, deleteShift, Shift, ShiftInput } from "../../api/shifts";
@@ -45,6 +52,22 @@ export function AdminSettingsScreen() {
       Alert.alert("สำเร็จ", "เปลี่ยนรหัสผ่านแอดมินเรียบร้อยแล้ว");
     },
     onError: (e) => setError(e instanceof Error ? e.message : "เปลี่ยนรหัสผ่านไม่สำเร็จ"),
+  });
+
+  const meQuery = useQuery({ queryKey: ["adminMe"], queryFn: getAdminMe });
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  useEffect(() => {
+    if (meQuery.data) setEmail(meQuery.data.email ?? "");
+  }, [meQuery.data]);
+  const emailMutation = useMutation({
+    mutationFn: () => setAdminEmail(email.trim()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adminMe"] });
+      setEmailError("");
+      Alert.alert("สำเร็จ", "บันทึกอีเมลกู้คืนรหัสผ่านเรียบร้อยแล้ว");
+    },
+    onError: (e) => setEmailError(e instanceof Error ? e.message : "บันทึกอีเมลไม่สำเร็จ"),
   });
 
   const payrollQuery = useQuery({ queryKey: ["payrollSettings"], queryFn: getPayrollSettings });
@@ -218,6 +241,30 @@ export function AdminSettingsScreen() {
           </View>
         </Card>
       )}
+
+      <Card>
+        <Text style={styles.cardTitle}>อีเมลกู้คืนรหัสผ่าน</Text>
+        <Text style={styles.hint}>
+          ใช้ตอนกดลืมรหัสผ่านหน้าเข้าสู่ระบบ — ถ้าไม่ตั้งอีเมลไว้ จะกู้รหัสผ่านผ่านแอปไม่ได้
+        </Text>
+        <ErrorBanner message={emailError} onDismiss={() => setEmailError("")} />
+        <TextField
+          label="อีเมล"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          placeholder="เช่น you@example.com"
+        />
+        <Button
+          title="บันทึกอีเมล"
+          variant="green"
+          onPress={() => emailMutation.mutate()}
+          disabled={!email || email === (meQuery.data?.email ?? "")}
+          loading={emailMutation.isPending}
+        />
+      </Card>
 
       <Card>
         <Text style={styles.cardTitle}>ล็อคระยะเช็คอิน (Geofence)</Text>

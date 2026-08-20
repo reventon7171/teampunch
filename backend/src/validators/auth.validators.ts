@@ -27,3 +27,19 @@ export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านเดิม"),
   newPassword: z.string().min(4, "รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร"),
 });
+
+export const setAdminEmailSchema = z.object({
+  email: z.string().email("รูปแบบอีเมลไม่ถูกต้อง"),
+});
+
+export const forgotPasswordSchema = z.object({
+  slug: slugSchema,
+  username: z.string().min(1),
+});
+
+export const resetPasswordSchema = z.object({
+  slug: slugSchema,
+  username: z.string().min(1),
+  code: z.string().length(6, "รหัสยืนยันต้องมี 6 หลัก"),
+  newPassword: z.string().min(4, "รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร"),
+});

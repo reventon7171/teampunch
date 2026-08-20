@@ -3,11 +3,13 @@ import { prisma } from "../lib/prisma";
 import { verifyPassword, hashPassword } from "../lib/password";
 import { signToken } from "../lib/jwt";
 import { asyncHandler } from "../lib/asyncHandler";
-import { loginSchema, registerOrgSchema } from "../validators/auth.validators";
-import { conflict, unauthorized } from "../lib/errors";
+import { loginSchema, registerOrgSchema, forgotPasswordSchema, resetPasswordSchema } from "../validators/auth.validators";
+import { conflict, unauthorized, badRequest } from "../lib/errors";
 import { serializeEmployee } from "../lib/serialize";
 import { loginRateLimiter } from "../middleware/rateLimit";
 import { slugify } from "../lib/slug";
+import { generateResetCode, hashResetCode, RESET_CODE_TTL_MINUTES } from "../lib/resetCode";
+import { sendEmail } from "../lib/email";
 
 const router = Router();
 
@@ -81,6 +83,66 @@ router.post(
     }
     const token = signToken({ sub: employee.id, role: "employee", orgId: employee.organizationId });
     res.json({ token, employee: serializeEmployee(employee) });
+  })
+);
+
+// Always responds the same way regardless of whether the slug/username/email combo exists —
+// otherwise this endpoint would let anyone probe which usernames exist at a given org.
+router.post(
+  "/admin/forgot-password",
+  loginRateLimiter,
+  asyncHandler(async (req, res) => {
+    const { slug, username } = forgotPasswordSchema.parse(req.body);
+    const org = await prisma.organization.findUnique({ where: { slug } });
+    const admin = org
+      ? await prisma.admin.findUnique({ where: { organizationId_username: { organizationId: org.id, username } } })
+      : null;
+
+    if (admin?.email) {
+      const code = generateResetCode();
+      await prisma.admin.update({
+        where: { id: admin.id },
+        data: {
+          resetCodeHash: hashResetCode(code),
+          resetCodeExpiresAt: new Date(Date.now() + RESET_CODE_TTL_MINUTES * 60_000),
+        },
+      });
+      await sendEmail(
+        admin.email,
+        "รหัสยืนยันเพื่อตั้งรหัสผ่านใหม่ — TeamPunch",
+        `<p>รหัสยืนยันของคุณคือ <b style="font-size:24px">${code}</b></p><p>ใช้ได้ภายใน ${RESET_CODE_TTL_MINUTES} นาที หากคุณไม่ได้ขอตั้งรหัสผ่านใหม่ ไม่ต้องดำเนินการใดๆ</p>`
+      );
+    }
+
+    res.json({ message: "หากอีเมลนี้ผูกกับบัญชีแอดมิน เราได้ส่งรหัสยืนยันไปแล้ว" });
+  })
+);
+
+router.post(
+  "/admin/reset-password",
+  loginRateLimiter,
+  asyncHandler(async (req, res) => {
+    const { slug, username, code, newPassword } = resetPasswordSchema.parse(req.body);
+    const org = await prisma.organization.findUnique({ where: { slug } });
+    const admin = org
+      ? await prisma.admin.findUnique({ where: { organizationId_username: { organizationId: org.id, username } } })
+      : null;
+
+    if (
+      !admin?.resetCodeHash ||
+      !admin.resetCodeExpiresAt ||
+      admin.resetCodeExpiresAt < new Date() ||
+      admin.resetCodeHash !== hashResetCode(code)
+    ) {
+      throw badRequest("รหัสยืนยันไม่ถูกต้องหรือหมดอายุ กรุณาขอรหัสใหม่");
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.admin.update({
+      where: { id: admin.id },
+      data: { passwordHash, resetCodeHash: null, resetCodeExpiresAt: null },
+    });
+    res.json({ ok: true });
   })
 );
 

@@ -43,6 +43,25 @@ export const changeAdminPassword = async (currentPassword: string, newPassword: 
   await api.patch("/api/admin/password", { currentPassword, newPassword });
 };
 
+export const setAdminEmail = async (email: string) => {
+  const { data } = await api.patch<{ email: string }>("/api/admin/email", { email });
+  return data;
+};
+
+export const getAdminMe = async () => {
+  const { data } = await api.get<{ id: string; username: string; email: string | null }>("/api/admin/me");
+  return data;
+};
+
+export const forgotAdminPassword = async (slug: string, username: string) => {
+  const { data } = await api.post<{ message: string }>("/api/auth/admin/forgot-password", { slug, username });
+  return data;
+};
+
+export const resetAdminPassword = async (slug: string, username: string, code: string, newPassword: string) => {
+  await api.post("/api/auth/admin/reset-password", { slug, username, code, newPassword });
+};
+
 export type WorkplaceLocation = { lat: number; lng: number; radiusMeters: number; enabled: boolean };
 
 export const getWorkplaceLocation = async () => {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { changePasswordSchema } from "../validators/auth.validators";
+import { changePasswordSchema, setAdminEmailSchema } from "../validators/auth.validators";
 import { hashPassword, verifyPassword } from "../lib/password";
 import { unauthorized } from "../lib/errors";
 
@@ -25,8 +25,18 @@ router.get(
     res.json({
       id: admin?.id,
       username: admin?.username,
+      email: admin?.email ?? null,
       organization: org ? { id: org.id, name: org.name, slug: org.slug } : null,
     });
+  })
+);
+
+router.patch(
+  "/email",
+  asyncHandler(async (req, res) => {
+    const { email } = setAdminEmailSchema.parse(req.body);
+    await prisma.admin.update({ where: { id: req.user!.id }, data: { email } });
+    res.json({ email });
   })
 );
 
