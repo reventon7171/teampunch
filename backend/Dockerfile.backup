@@ -17,8 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
 
 WORKDIR /app
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci
 COPY . .
-RUN npx prisma generate && npm run build
+RUN npm run build
 
 CMD ["npm", "run", "backup"]
