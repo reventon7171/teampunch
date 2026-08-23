@@ -1,9 +1,0 @@
-# postgresql_18 provides pg_dump, used by scripts/backupDatabase.ts (the nightly Railway Cron
-# Job service) — Railway builds this repo with Railpack, not classic Nixpacks, and Railpack
-# only honors nixPkgs from this file (not aptPkgs — that field is silently ignored, which is
-# what happened here originally: pg_dump came back "ENOENT" despite this file existing).
-# Version pinned to 18 to match Railway's own Postgres service image
-# (ghcr.io/railwayapp-templates/postgres-ssl:18) — pg_dump from an older major version isn't
-# guaranteed to work against a newer server.
-[phases.setup]
-nixPkgs = ["...", "postgresql_18"]

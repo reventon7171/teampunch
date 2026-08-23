@@ -1,0 +1,24 @@
+# Dedicated image for the nightly backup Cron Job service (teampunch-backup on Railway) —
+# NOT used by the main API service. Based directly on the same Postgres image Railway runs
+# (see docker-compose/Railway service "Postgres": ghcr.io/railwayapp-templates/postgres-ssl:18,
+# itself built on the official postgres:18 image) so pg_dump's version always matches the
+# server's exactly. Getting a matching pg_dump via Railpack's own package managers (apt, mise)
+# was unreliable: Debian's apt only ships client 17 (one major behind, which pg_dump refuses to
+# use against a newer server), and mise's postgres@18 tries to compile from source and fails
+# without extra build deps like bison. Building FROM the Postgres image itself sidesteps all of
+# that — pg_dump is already there, at the right version, with no compilation needed.
+FROM postgres:18-bookworm
+
+# Node.js, needed to run backupDatabase.ts (compiled to JS) and npm scripts
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npx prisma generate && npm run build
+
+CMD ["npm", "run", "backup"]
