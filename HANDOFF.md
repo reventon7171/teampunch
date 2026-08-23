@@ -135,19 +135,22 @@ Unit test ของ payroll engine: **79 ข้อ ผ่านหมด** (`bac
 - แอดมินต้องตั้งอีเมลของตัวเองก่อนที่ **ตั้งค่า → อีเมลกู้คืนรหัสผ่าน** ถึงจะกู้รหัสผ่านได้ (ไม่มีอีเมลผูกไว้ = กู้ไม่ได้ ต้องแก้ใน database ตรงๆ เหมือนเดิม)
 - **ต้องทำ**: สมัคร https://resend.com (free tier 3,000 อีเมล/เดือน) → เอา API key มาใส่ Railway env var `RESEND_API_KEY` → ถ้ายังไม่ verify custom domain, ใช้ `RESEND_FROM_EMAIL` default (`TeamPunch <onboarding@resend.dev>`) ได้เลย **แต่ sandbox แบบนี้ส่งได้เฉพาะไปที่อีเมลที่สมัคร Resend account เท่านั้น** — พอพร้อมเปิดใช้จริงกับแอดมินหลายคน/หลาย org ต้อง verify domain ของตัวเองใน Resend ก่อน แล้วเปลี่ยน `RESEND_FROM_EMAIL` เป็นโดเมนนั้น
 
-### 9.2 Backup database ทุกคืน (โค้ดพร้อมแล้ว ต้องสร้าง Railway Cron Job เอง)
+### 9.2 Backup database ทุกคืน — **สร้าง Railway Cron Job เสร็จแล้ว** (Claude ทำให้จบทั้งหมดผ่าน Railway CLI/API รอบนี้)
 
-- Script: `backend/src/scripts/backupDatabase.ts` → `pg_dump --format=custom` แล้วอัปโหลดขึ้น R2 bucket เดิม (ที่ใช้เก็บรูป) ใต้ prefix `backups/` เก็บย้อนหลัง 14 ชุด (ลบของเก่าอัตโนมัติ)
-- เพิ่ม `backend/nixpacks.toml` ติดตั้ง `postgresql-client` (pg_dump) เข้า build image
+- Script: `backend/src/scripts/backupDatabase.ts` → `pg_dump --format=custom` แล้วอัปโหลดขึ้น R2 bucket เดิม (ที่ใช้เก็บรูป, `teampunch-photo`) ใต้ prefix `backups/` เก็บย้อนหลัง 14 ชุด (ลบของเก่าอัตโนมัติ)
 - npm script: `npm run backup` (รัน `dist/src/scripts/backupDatabase.js`)
-- **ต้องทำใน Railway dashboard**:
-  1. เปิดโปรเจกต์ `resilient-benevolence` → "+ New" → "GitHub Repo" → เลือก repo เดิม (`reventon7171/teampunch`)
-  2. ตั้งชื่อ service เช่น `teampunch-backup`, Root Directory = `backend`
-  3. ไปที่ Settings ของ service ใหม่นี้ → **Deploy → Custom Start Command** ใส่ `npm run backup` (อย่าใช้ `npm start` เพราะจะรัน `prisma migrate deploy` + เปิด server ทับซ้อนกับตัวหลัก)
-  4. Settings → **Cron Schedule** ตั้งเป็น `0 20 * * *` (20:00 UTC = ตี 3 เวลาไทย ทุกคืน)
-  5. Copy env vars จาก service หลักมาใส่ service นี้ด้วย (อย่างน้อย `DATABASE_URL`, `JWT_SECRET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`) — หรือใช้ Railway "Shared Variables" ถ้าอยากผูกอัตโนมัติ
-  6. กด Deploy แล้วลอง "Run now" ดูสักครั้งว่าผ่าน — เช็คใน R2 bucket ว่ามีไฟล์ `backups/teampunch-....dump` ขึ้นมาจริง
+- **⚠️ เรื่องสำคัญที่พลาดไปรอบแรก — Railpack ไม่ใช่ Nixpacks**: โปรเจกต์นี้ build ด้วย **Railpack** (Railway's ตัวใหม่) ไม่ใช่ Nixpacks แบบเดิม `nixpacks.toml` field `aptPkgs` **ใช้ไม่ได้กับ Railpack เลย** (เงียบๆ ไม่ error แต่ pg_dump หายไปเฉยๆ = `ENOENT`) ต้องใช้ field `nixPkgs` แทน (Railpack ยังอ่าน `nixpacks.toml` แต่เอาแค่ `nixPkgs`) และต้อง**ระบุเวอร์ชันให้ตรงกับ Postgres ที่ Railway รันอยู่** (ตอนนี้คือ v18, image `ghcr.io/railwayapp-templates/postgres-ssl:18`) ไฟล์ที่ถูกต้องคือ:
+  ```toml
+  [phases.setup]
+  nixPkgs = ["...", "postgresql_18"]
+  ```
+  ถ้า Railway อัปเกรด Postgres เป็นเวอร์ชันใหม่ในอนาคต ต้องอัปเดตเลข `postgresql_18` ในไฟล์นี้ให้ตรงด้วย ไม่งั้น `pg_dump` เก่าเกินไปอาจ dump จาก server ใหม่กว่าไม่ได้
+- **Service ที่สร้างไว้แล้วใน Railway** (โปรเจกต์ `resilient-benevolence`): `teampunch-backup` — repo เดิม, Root Directory `backend`, Custom Start Command `npm run backup`, Cron Schedule `0 20 * * *` (20:00 UTC = ตี 3 เวลาไทย ทุกคืน), copy env vars มาแล้ว (`DATABASE_URL`, `JWT_SECRET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`)
+- ทดสอบผ่านปุ่ม **"Run now"** ในแท็บ "Cron Runs" ของ service (ทดสอบจริงจนผ่านแล้วหลังแก้ nixPkgs) — ยืนยันด้วยการเช็คไฟล์ `backups/teampunch-....dump` ใน R2 bucket ตรงๆ (ปุ่ม "Run now" ทำงานคนละอย่างจาก deploy ปกติ — deploy แค่ build image ไว้ ไม่ได้รัน start command จนกว่าจะถึงเวลา cron หรือกด Run now)
+- **มีไฟล์เก่าปนอยู่ใน `backups/` prefix ของ bucket เดียวกัน**: `backups/2026-08-20T14-07-58-974Z.json` — เป็น manual export เก่าจากตอนที่ TeamPunch ยังมี `dutyRotationEnabled`/`driveFolderId` (ก่อนลบฟีเจอร์ duty rotation ตามหัวข้อ 5.4) ไม่เกี่ยวกับระบบ backup ใหม่นี้ ไม่กระทบ retention logic (จะโดนลบเองเมื่อมี real backup ครบ 14+ ไฟล์) แต่ไฟล์นี้มี password hash ของแอดมิน/พนักงานตอนนั้นอยู่ข้างใน — ลบทิ้งเองได้ถ้าต้องการเคลียร์
 - **กู้คืนข้อมูลตอนจำเป็น**: โหลดไฟล์ `.dump` จาก R2 มาเครื่อง แล้ว `pg_restore --clean --no-owner -d "$DATABASE_URL" ไฟล์.dump`
+
+**⚠️ คำเตือนสำหรับ session ถัดไปที่จะใช้ Railway CLI**: เครื่องนี้เคย login Railway CLI ด้วยบัญชี **`busstationbar@gmail.com`** (บัญชีแอป บขส. บาร์ — แอปเดิมที่ห้ามแตะเด็ดขาด ดูหัวข้อ 6) ค้างอยู่มาก่อน ต้องรัน `railway whoami` เช็คให้เป็น `wuttiwat.pint@gmail.com` **ทุกครั้งก่อน**รันคำสั่ง Railway CLI ใดๆ ถ้าไม่ใช่ต้อง `railway logout` แล้ว `railway login` ใหม่ก่อน (ต้องเปิดลิงก์ยืนยันตัวตนในเบราว์เซอร์เอง ให้ user ทำ ไม่ใช่ agent กรอกรหัสผ่านแทน)
 
 ### 9.3 แจ้งเตือนถ้า backend ล่ม ทาง email (ยังไม่ได้ตั้งค่า — ต้องทำเองทั้งหมด ไม่มีโค้ดเกี่ยวข้อง)
 
