@@ -11,6 +11,7 @@ export interface EmployeeInput {
   hireDate: string;
   socialSecurityRate?: number;
   wageType?: WageType;
+  absenceDeductionByWeekday?: number[]; // baht per absence, indexed 0 (Sun) - 6 (Sat)
   shiftId?: string | null;
   username: string;
   password?: string;

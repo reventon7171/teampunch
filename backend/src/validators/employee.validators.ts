@@ -13,6 +13,8 @@ export const createEmployeeSchema = z.object({
   hireDate: z.string().regex(dateRegex, "รูปแบบวันที่ไม่ถูกต้อง (YYYY-MM-DD)"),
   socialSecurityRate: z.coerce.number().min(0).max(100).default(0),
   wageType: z.enum(["MONTHLY", "DAILY_WAGE"]).default("MONTHLY"),
+  // baht deducted per absence, indexed by weekday 0 (Sun) - 6 (Sat)
+  absenceDeductionByWeekday: z.array(z.coerce.number().min(0)).length(7).default([0, 0, 0, 0, 0, 0, 0]),
   // when set, workStart/workEnd above are overridden with this shift's times server-side
   shiftId: z.string().uuid().nullable().optional(),
   username: z

@@ -83,6 +83,9 @@ export function MyPayrollScreen() {
                 </Pressable>
               </>
             )}
+            {p.weekdayAbsenceDeduction > 0 && (
+              <Row label="หักขาดงาน (ตามวันในสัปดาห์)" value={`หัก ${formatMoney(p.weekdayAbsenceDeduction)} บาท`} negative />
+            )}
             {p.socialSecurityDeduction > 0 && (
               <Row label="หักประกันสังคม" value={`หัก ${formatMoney(p.socialSecurityDeduction)} บาท`} negative />
             )}

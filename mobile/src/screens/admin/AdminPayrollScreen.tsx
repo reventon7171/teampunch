@@ -8,6 +8,7 @@ import { TextField } from "../../components/TextField";
 import { Tag } from "../../components/Tag";
 import { DateListModal } from "../../components/DateListModal";
 import { getAllPayroll, setAdvance, setCommission } from "../../api/payroll";
+import { correctAttendance } from "../../api/attendance";
 import { periodInfo, periodKeyFromDate, todayStr } from "../../utils/period";
 import { usePayrollConfig } from "../../hooks/usePayrollConfig";
 import { formatMoney } from "../../utils/format";
@@ -29,6 +30,15 @@ export function AdminPayrollScreen() {
   });
 
   const [absenceEmployeeId, setAbsenceEmployeeId] = useState<string | null>(null);
+  const [markingDate, setMarkingDate] = useState<string | null>(null);
+  const markPresentMutation = useMutation({
+    mutationFn: ({ employeeId, date }: { employeeId: string; date: string }) => {
+      setMarkingDate(date);
+      return correctAttendance(employeeId, date, true);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adminPayroll", periodKey] }),
+    onSettled: () => setMarkingDate(null),
+  });
 
   const info = periodInfo(periodKey, config);
   const commissionMutation = useMutation({
@@ -83,6 +93,9 @@ export function AdminPayrollScreen() {
               <Row label="หักลา" value={formatMoney(p.leaveDeduction)} />
             </>
           )}
+          {p.weekdayAbsenceDeduction > 0 && (
+            <Row label="หักขาดงาน (ตามวันในสัปดาห์)" value={formatMoney(p.weekdayAbsenceDeduction)} />
+          )}
           {p.socialSecurityDeduction > 0 && <Row label="หักประกันสังคม" value={formatMoney(p.socialSecurityDeduction)} />}
 
           <TextField
@@ -123,6 +136,8 @@ export function AdminPayrollScreen() {
         title={`วันที่ขาดงาน — ${rows?.find((r) => r.employeeId === absenceEmployeeId)?.name ?? ""}`}
         dates={rows?.find((r) => r.employeeId === absenceEmployeeId)?.absenceDates ?? []}
         onClose={() => setAbsenceEmployeeId(null)}
+        markingDate={markingDate}
+        onMarkPresent={(date) => absenceEmployeeId && markPresentMutation.mutate({ employeeId: absenceEmployeeId, date })}
       />
     </Screen>
   );

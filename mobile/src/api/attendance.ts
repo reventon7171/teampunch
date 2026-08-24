@@ -49,3 +49,8 @@ export const getAllAttendance = async (params: { employeeId?: string; from?: str
   const { data } = await api.get<AttendanceRecord[]>("/api/attendance", { params });
   return data;
 };
+
+export const correctAttendance = async (employeeId: string, date: string, present: boolean) => {
+  const { data } = await api.put("/api/attendance/correct", { employeeId, date, present });
+  return data;
+};

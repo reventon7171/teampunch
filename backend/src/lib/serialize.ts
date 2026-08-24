@@ -12,6 +12,7 @@ export const toPayrollEmployee = (emp: Employee): PayrollEmployee => ({
   hireDate: emp.hireDate,
   socialSecurityRate: Number(emp.socialSecurityRate),
   wageType: emp.wageType as WageType,
+  absenceDeductionByWeekday: emp.absenceDeductionByWeekday.map(Number),
 });
 
 export const toPayrollConfig = (org: Organization): PayrollConfig => ({
@@ -59,6 +60,7 @@ export const serializeEmployee = (emp: Employee) => ({
   active: emp.active,
   socialSecurityRate: Number(emp.socialSecurityRate),
   wageType: emp.wageType,
+  absenceDeductionByWeekday: emp.absenceDeductionByWeekday.map(Number),
   shiftId: emp.shiftId,
   createdAt: emp.createdAt,
 });

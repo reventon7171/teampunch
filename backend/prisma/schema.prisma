@@ -123,6 +123,11 @@ model Employee {
   workStart    String // "HH:MM" 24h
   workEnd      String // "HH:MM" 24h, may be <= workStart for overnight shifts
   daysOff      Int[] // weekday numbers 0 (Sun) - 6 (Sat)
+  // baht deducted for each day this employee is absent, indexed by weekday 0 (Sun) - 6 (Sat) —
+  // e.g. index 6 is what an absence on a Saturday costs this employee. All zero (the default)
+  // means no per-weekday absence penalty. Applies on top of any other deduction (late, leave,
+  // the org-wide DAILY_WAGE toggle) — a distinct, employee-configurable penalty.
+  absenceDeductionByWeekday Decimal[] @default([0, 0, 0, 0, 0, 0, 0]) @db.Decimal(12, 2)
   hireDate     String? // "YYYY-MM-DD" — nullable only for rows created before this field existed;
   // required going forward at the application layer (createEmployeeSchema)
   username     String

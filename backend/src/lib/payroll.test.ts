@@ -640,6 +640,66 @@ describe("computePayroll — optional daily-wage absence deduction", () => {
   });
 });
 
+// "2026-08-B" = Aug2-16 2026, daysOff=[0] excludes both Sundays (Aug2, Aug9, Aug16). Aug3 is a
+// Monday, Aug8 a Saturday.
+describe("computePayroll — per-weekday absence deduction", () => {
+  const emp: PayrollEmployee = {
+    id: "e1",
+    baseSalary: 30000,
+    workStart: "09:00",
+    workEnd: "18:00",
+    daysOff: [0],
+    hireDate: "2020-01-01",
+  };
+  const workDays = [3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15];
+  const attendanceExcept = (skip: number[]): AttendanceRecord[] =>
+    workDays
+      .filter((d) => !skip.includes(d))
+      .map((d) => ({
+        employeeId: "e1",
+        date: `2026-08-${String(d).padStart(2, "0")}`,
+        checkInTime: "09:00",
+        lateMinutes: 0,
+        deductionAmount: 0,
+      }));
+
+  it("is 0 by default (all-zero weekday amounts) even with absences", () => {
+    const p = computePayroll(emp, "2026-08-B", DEFAULT_PAYROLL_CONFIG, attendanceExcept([3, 8]), [], [], 0, 0, "2026-08-16");
+    expect(p.absenceCount).toBe(2);
+    expect(p.weekdayAbsenceDeduction).toBe(0);
+  });
+
+  it("charges the configured amount for the specific weekday of each absence", () => {
+    // index 1 (Mon) = 100, index 6 (Sat) = 200, everything else 0
+    const configuredEmp = { ...emp, absenceDeductionByWeekday: [0, 100, 0, 0, 0, 0, 200] };
+    const p = computePayroll(configuredEmp, "2026-08-B", DEFAULT_PAYROLL_CONFIG, attendanceExcept([3, 8]), [], [], 0, 0, "2026-08-16");
+    expect(p.absenceCount).toBe(2); // Aug3 (Mon) + Aug8 (Sat)
+    expect(p.weekdayAbsenceDeduction).toBe(300); // 100 + 200
+    expect(p.net).toBe(p.periodSalary - 300);
+  });
+
+  it("only charges for weekdays that actually had an absence", () => {
+    // Mon=100 configured, but only the Saturday (Aug8) is actually absent this period
+    const configuredEmp = { ...emp, absenceDeductionByWeekday: [0, 100, 0, 0, 0, 0, 200] };
+    const p = computePayroll(configuredEmp, "2026-08-B", DEFAULT_PAYROLL_CONFIG, attendanceExcept([8]), [], [], 0, 0, "2026-08-16");
+    expect(p.absenceCount).toBe(1);
+    expect(p.weekdayAbsenceDeduction).toBe(200);
+  });
+
+  it("stacks on top of dailyWageAbsenceDeduction for DAILY_WAGE employees", () => {
+    const configuredEmp: PayrollEmployee = {
+      ...emp,
+      wageType: "DAILY_WAGE",
+      absenceDeductionByWeekday: [0, 100, 0, 0, 0, 0, 200],
+    };
+    const config = { ...DEFAULT_PAYROLL_CONFIG, dailyWageDeductAbsence: true, dailyWageAbsenceDeductionAmount: 50 };
+    const p = computePayroll(configuredEmp, "2026-08-B", config, attendanceExcept([3, 8]), [], [], 0, 0, "2026-08-16");
+    expect(p.dailyWageAbsenceDeduction).toBe(100); // 2 x 50
+    expect(p.weekdayAbsenceDeduction).toBe(300); // 100 + 200
+    expect(p.net).toBe(p.periodSalary - 100 - 300);
+  });
+});
+
 describe("overtimeDurationHours", () => {
   it("computes plain same-day duration", () => {
     expect(overtimeDurationHours("18:00", "20:00")).toBe(2);

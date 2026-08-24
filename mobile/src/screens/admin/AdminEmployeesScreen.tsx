@@ -38,6 +38,7 @@ const emptyForm: EmployeeInput = {
   hireDate: todayStr(),
   socialSecurityRate: 0,
   wageType: "MONTHLY",
+  absenceDeductionByWeekday: [0, 0, 0, 0, 0, 0, 0],
   username: "",
   password: "",
 };
@@ -69,6 +70,7 @@ export function AdminEmployeesScreen() {
       hireDate: emp.hireDate ?? todayStr(),
       socialSecurityRate: emp.socialSecurityRate,
       wageType: emp.wageType,
+      absenceDeductionByWeekday: emp.absenceDeductionByWeekday,
       shiftId: emp.shiftId,
       username: emp.username,
       password: "",
@@ -117,6 +119,14 @@ export function AdminEmployeesScreen() {
       ...f,
       daysOff: f.daysOff.includes(v) ? f.daysOff.filter((d) => d !== v) : [...f.daysOff, v],
     }));
+  };
+
+  const setAbsenceDeduction = (weekday: number, amount: number) => {
+    setForm((f) => {
+      const next = [...(f.absenceDeductionByWeekday ?? [0, 0, 0, 0, 0, 0, 0])];
+      next[weekday] = amount;
+      return { ...f, absenceDeductionByWeekday: next };
+    });
   };
 
   // deactivate is the default, safe, reversible action for an active employee — it blocks
@@ -273,6 +283,22 @@ export function AdminEmployeesScreen() {
             })}
           </View>
 
+          <Text style={styles.label}>หักเงินเมื่อขาดงาน (บาท/วัน) แยกตามวันในสัปดาห์</Text>
+          <Text style={styles.hint}>เผื่อกรณีลืมเช็คอินหรือไม่ได้พกโทรศัพท์ — เว้นว่างหรือใส่ 0 ถ้าไม่ต้องการหักเพิ่ม</Text>
+          <View style={styles.absenceDeductionGrid}>
+            {WEEKDAYS.map((v) => (
+              <View key={v} style={styles.absenceDeductionItem}>
+                <TextField
+                  label={weekdayLabel(v)}
+                  value={form.absenceDeductionByWeekday?.[v] ? String(form.absenceDeductionByWeekday[v]) : ""}
+                  onChangeText={(t) => setAbsenceDeduction(v, Number(t.replace(/[^0-9.]/g, "")) || 0)}
+                  keyboardType="numeric"
+                  placeholder="0"
+                />
+              </View>
+            ))}
+          </View>
+
           <View style={styles.actionsRow}>
             <Button
               title={editingId ? "บันทึกการแก้ไข" : "บันทึกพนักงาน"}
@@ -313,6 +339,14 @@ export function AdminEmployeesScreen() {
               {emp.socialSecurityRate > 0 && (
                 <Text style={styles.empDetail}>หักประกันสังคม {emp.socialSecurityRate}% ของเงินเดือนแต่ละงวด</Text>
               )}
+              {emp.absenceDeductionByWeekday.some((a) => a > 0) && (
+                <Text style={styles.empDetail}>
+                  หักขาดงาน:{" "}
+                  {WEEKDAYS.filter((v) => emp.absenceDeductionByWeekday[v] > 0)
+                    .map((v) => `${weekdayLabel(v)} ${formatMoney(emp.absenceDeductionByWeekday[v])} บาท`)
+                    .join(", ")}
+                </Text>
+              )}
             </View>
           </View>
 
@@ -344,6 +378,8 @@ const styles = StyleSheet.create({
   wageTypeRow: { flexDirection: "row", gap: spacing.xs, marginBottom: spacing.xs },
   hint: { fontSize: fontSize.xs, color: colors.inkSoft, marginBottom: spacing.md, lineHeight: 16 },
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.md },
+  absenceDeductionGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.md },
+  absenceDeductionItem: { width: "31%" },
   switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
   switchLabel: { fontSize: fontSize.sm, color: colors.ink, fontWeight: "600", flex: 1, marginRight: spacing.sm },
   chip: { borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, paddingVertical: 5, paddingHorizontal: 10, backgroundColor: colors.white },

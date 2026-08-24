@@ -13,6 +13,7 @@ export interface Employee {
   active: boolean;
   socialSecurityRate: number;
   wageType: WageType;
+  absenceDeductionByWeekday: number[]; // baht per absence, indexed 0 (Sun) - 6 (Sat)
   shiftId: string | null;
   createdAt: string;
 }
@@ -101,6 +102,7 @@ export interface PayrollBreakdown {
   absenceCount: number;
   absenceDates: string[];
   dailyWageAbsenceDeduction: number;
+  weekdayAbsenceDeduction: number;
   socialSecurityDeduction: number;
   advanceAmount: number;
   commissionAmount: number;

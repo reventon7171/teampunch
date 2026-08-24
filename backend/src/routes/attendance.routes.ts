@@ -4,7 +4,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { upload, randomPhotoKey } from "../lib/upload";
 import { savePhoto, readPhoto } from "../lib/storage";
-import { punchSchema, attendanceQuerySchema } from "../validators/attendance.validators";
+import { punchSchema, attendanceQuerySchema, correctAttendanceSchema } from "../validators/attendance.validators";
 import { serializeAttendance, toPayrollEmployee } from "../lib/serialize";
 import { badRequest, conflict, notFound, forbidden } from "../lib/errors";
 import { todayStrBangkok, nowHHMMBangkok } from "../lib/thaiTime";
@@ -243,6 +243,49 @@ router.get(
       orderBy: { date: "desc" },
     });
     res.json(records.map(serializeAttendance));
+  })
+);
+
+// lets an admin backfill or undo a missed check-in (employee forgot, lost their phone, etc.)
+// without requiring photo/GPS proof — the admin is vouching for the day in place of the app's
+// own verification.
+router.put(
+  "/correct",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const { employeeId, date, present } = correctAttendanceSchema.parse(req.body);
+    const organizationId = req.user!.organizationId;
+    if (date > todayStrBangkok()) throw badRequest("ไม่สามารถแก้ไขวันที่ในอนาคตได้");
+
+    const emp = await prisma.employee.findFirst({ where: { id: employeeId, organizationId } });
+    if (!emp) throw notFound("พนักงาน");
+
+    if (!present) {
+      await prisma.attendance.deleteMany({ where: { employeeId, organizationId, date } });
+      return res.json({ date, present: false });
+    }
+
+    const record = await prisma.attendance.upsert({
+      where: { employeeId_date: { employeeId, date } },
+      create: {
+        organizationId,
+        employeeId,
+        date,
+        checkInTime: emp.workStart,
+        checkOutTime: emp.workEnd,
+        lateMinutes: 0,
+        deductionHours: 0,
+        deductionAmount: 0,
+      },
+      update: {
+        checkInTime: emp.workStart,
+        checkOutTime: emp.workEnd,
+        lateMinutes: 0,
+        deductionHours: 0,
+        deductionAmount: 0,
+      },
+    });
+    res.json(serializeAttendance(record));
   })
 );
 

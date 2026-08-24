@@ -21,6 +21,7 @@ export interface PayrollEmployee {
   hireDate: string | null; // "YYYY-MM-DD"; null only for legacy rows predating this field
   socialSecurityRate?: number; // % of this period's gross pay withheld (0-100). Defaults to 0.
   wageType?: WageType; // defaults to "MONTHLY" if omitted
+  absenceDeductionByWeekday?: number[]; // baht per absence, indexed 0 (Sun) - 6 (Sat); defaults to all 0
 }
 
 export interface AttendanceRecord {
@@ -447,6 +448,7 @@ export interface PayrollBreakdown {
   absenceCount: number;
   absenceDates: string[]; // "YYYY-MM-DD" for each day counted in absenceCount, for drill-down UI
   dailyWageAbsenceDeduction: number; // always 0 unless wageType=DAILY_WAGE and the org opted into it
+  weekdayAbsenceDeduction: number; // sum of emp.absenceDeductionByWeekday over absenceDates, any wageType
   socialSecurityDeduction: number;
   advanceAmount: number;
   commissionAmount: number;
@@ -543,6 +545,13 @@ export const computePayroll = (
       ? absenceCount * (config.dailyWageAbsenceDeductionAmount ?? 0)
       : 0;
 
+  // employee-configured penalty per absence, by the weekday it falls on — applies regardless
+  // of wageType, on top of dailyWageAbsenceDeduction above (a distinct, separately-set amount)
+  const weekdayAbsenceDeduction = absenceDates.reduce(
+    (s, d) => s + (emp.absenceDeductionByWeekday?.[dateAt(d).getDay()] ?? 0),
+    0
+  );
+
   const socialSecurityDeduction = Math.max(0, periodSalary * ((emp.socialSecurityRate ?? 0) / 100));
 
   // commission is still set by the admin once per calendar month (Commission.yearMonth) — it's
@@ -567,6 +576,7 @@ export const computePayroll = (
     lateDeduction -
     leaveDeduction -
     dailyWageAbsenceDeduction -
+    weekdayAbsenceDeduction -
     socialSecurityDeduction -
     advanceAmount +
     commission +
@@ -586,6 +596,7 @@ export const computePayroll = (
     absenceCount,
     absenceDates,
     dailyWageAbsenceDeduction,
+    weekdayAbsenceDeduction,
     socialSecurityDeduction,
     advanceAmount,
     commissionAmount: commission,
