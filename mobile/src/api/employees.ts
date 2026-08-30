@@ -23,6 +23,10 @@ export const setMyShift = async (shiftId: string): Promise<Employee> => {
   return data;
 };
 
+export const deleteMyAccount = async (currentPassword: string): Promise<void> => {
+  await api.delete("/api/employees/me/account", { data: { currentPassword } });
+};
+
 export const listEmployees = async (): Promise<Employee[]> => {
   const { data } = await api.get<Employee[]>("/api/employees");
   return data;

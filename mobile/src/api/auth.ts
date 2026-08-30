@@ -43,6 +43,10 @@ export const changeAdminPassword = async (currentPassword: string, newPassword: 
   await api.patch("/api/admin/password", { currentPassword, newPassword });
 };
 
+export const deleteAdminAccount = async (currentPassword: string) => {
+  await api.delete("/api/admin/account", { data: { currentPassword } });
+};
+
 export const setAdminEmail = async (email: string) => {
   const { data } = await api.patch<{ email: string }>("/api/admin/email", { email });
   return data;

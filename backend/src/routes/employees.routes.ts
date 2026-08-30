@@ -2,11 +2,11 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireRole, requireSelfOrAdmin } from "../middleware/auth";
-import { createEmployeeSchema, updateEmployeeSchema } from "../validators/employee.validators";
+import { createEmployeeSchema, updateEmployeeSchema, deleteEmployeeAccountSchema } from "../validators/employee.validators";
 import { selectShiftSchema } from "../validators/shift.validators";
 import { serializeEmployee } from "../lib/serialize";
-import { hashPassword } from "../lib/password";
-import { badRequest, conflict, notFound } from "../lib/errors";
+import { hashPassword, verifyPassword } from "../lib/password";
+import { badRequest, conflict, notFound, unauthorized } from "../lib/errors";
 
 const router = Router();
 router.use(requireAuth);
@@ -33,6 +33,23 @@ router.put(
       data: shiftTimes,
     });
     res.json(serializeEmployee(updated));
+  })
+);
+
+// Self-service account deletion — deletes this employee's own row (and, via cascading FKs,
+// their attendance/leave/advance/commission/overtime history). Does not touch the
+// organization or other employees.
+router.delete(
+  "/me/account",
+  requireRole("employee"),
+  asyncHandler(async (req, res) => {
+    const { currentPassword } = deleteEmployeeAccountSchema.parse(req.body);
+    const employee = await prisma.employee.findUnique({ where: { id: req.user!.id } });
+    if (!employee || !(await verifyPassword(currentPassword, employee.passwordHash))) {
+      throw unauthorized("รหัสผ่านไม่ถูกต้อง");
+    }
+    await prisma.employee.delete({ where: { id: employee.id } });
+    res.json({ ok: true });
   })
 );
 

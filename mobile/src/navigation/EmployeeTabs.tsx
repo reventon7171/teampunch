@@ -6,6 +6,7 @@ import { PunchScreen } from "../screens/employee/PunchScreen";
 import { MyPayrollScreen } from "../screens/employee/MyPayrollScreen";
 import { LeaveScreen } from "../screens/employee/LeaveScreen";
 import { AttendanceHistoryScreen } from "../screens/employee/AttendanceHistoryScreen";
+import { EmployeeSettingsScreen } from "../screens/employee/EmployeeSettingsScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -25,6 +26,7 @@ export function EmployeeTabs() {
       <Tab.Screen name="History" component={AttendanceHistoryScreen} options={{ title: "ประวัติ", tabBarIcon: icon("📅") }} />
       <Tab.Screen name="Leave" component={LeaveScreen} options={{ title: "ลางาน", tabBarIcon: icon("📝") }} />
       <Tab.Screen name="Payroll" component={MyPayrollScreen} options={{ title: "เงินเดือน", tabBarIcon: icon("💰") }} />
+      <Tab.Screen name="Settings" component={EmployeeSettingsScreen} options={{ title: "ตั้งค่า", tabBarIcon: icon("⚙️") }} />
     </Tab.Navigator>
   );
 }

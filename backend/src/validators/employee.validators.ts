@@ -33,3 +33,7 @@ export const updateEmployeeSchema = createEmployeeSchema
     active: z.boolean().optional(),
   });
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
+
+export const deleteEmployeeAccountSchema = z.object({
+  currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านเพื่อยืนยัน"),
+});

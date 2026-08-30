@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { changePasswordSchema, setAdminEmailSchema } from "../validators/auth.validators";
+import { changePasswordSchema, setAdminEmailSchema, deleteAccountSchema } from "../validators/auth.validators";
 import { hashPassword, verifyPassword } from "../lib/password";
 import { unauthorized } from "../lib/errors";
 
@@ -50,6 +50,22 @@ router.patch(
     }
     const passwordHash = await hashPassword(newPassword);
     await prisma.admin.update({ where: { id: admin.id }, data: { passwordHash } });
+    res.json({ ok: true });
+  })
+);
+
+// Deletes this admin's entire business account — the whole Organization and everything
+// under it (other admins, employees, attendance, leaves, payroll records, ...) via the
+// cascading FKs on Organization. Irreversible.
+router.delete(
+  "/account",
+  asyncHandler(async (req, res) => {
+    const { currentPassword } = deleteAccountSchema.parse(req.body);
+    const admin = await prisma.admin.findUnique({ where: { id: req.user!.id } });
+    if (!admin || !(await verifyPassword(currentPassword, admin.passwordHash))) {
+      throw unauthorized("รหัสผ่านไม่ถูกต้อง");
+    }
+    await prisma.organization.delete({ where: { id: req.user!.organizationId } });
     res.json({ ok: true });
   })
 );

@@ -11,6 +11,7 @@ import { ChoiceModal } from "../../components/ChoiceModal";
 import { TimeField } from "../../components/TimeField";
 import {
   changeAdminPassword,
+  deleteAdminAccount,
   getAdminMe,
   setAdminEmail,
   getWorkplaceLocation,
@@ -91,6 +92,25 @@ export function AdminSettingsScreen() {
   });
 
   const billingQuery = useQuery({ queryKey: ["billing"], queryFn: getBilling });
+
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deletePw, setDeletePw] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const deleteAccountMutation = useMutation({
+    mutationFn: () => deleteAdminAccount(deletePw),
+    onSuccess: () => logout(),
+    onError: (e) => setDeleteError(e instanceof Error ? e.message : "ลบบัญชีไม่สำเร็จ"),
+  });
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      "ยืนยันการลบบัญชี",
+      "การลบบัญชีจะลบข้อมูลทั้งหมดของกิจการนี้ถาวร ทั้งพนักงาน ประวัติเช็คอิน และเงินเดือน ไม่สามารถกู้คืนได้ ยืนยันหรือไม่?",
+      [
+        { text: "ยกเลิก", style: "cancel" },
+        { text: "ลบถาวร", style: "destructive", onPress: () => deleteAccountMutation.mutate() },
+      ]
+    );
+  };
 
   const MAX_SHIFTS = 3;
   const emptyShiftForm: ShiftInput = { name: "", startTime: "08:00", endTime: "17:00" };
@@ -523,6 +543,44 @@ export function AdminSettingsScreen() {
           </>
         ) : (
           <Text style={styles.hint}>กำลังโหลด...</Text>
+        )}
+      </Card>
+
+      <Card>
+        <Text style={styles.cardTitle}>ลบบัญชี</Text>
+        <Text style={styles.hint}>
+          ลบบัญชีกิจการนี้และข้อมูลทั้งหมดถาวร (พนักงาน ประวัติเช็คอิน เงินเดือน) ไม่สามารถกู้คืนได้
+        </Text>
+        {!showDeleteAccount ? (
+          <Button title="ลบบัญชี" variant="red" onPress={() => setShowDeleteAccount(true)} />
+        ) : (
+          <>
+            <ErrorBanner message={deleteError} onDismiss={() => setDeleteError("")} />
+            <TextField
+              label="กรอกรหัสผ่านเพื่อยืนยัน"
+              value={deletePw}
+              onChangeText={setDeletePw}
+              secureTextEntry
+            />
+            <View style={styles.actionsRow}>
+              <Button
+                title="ยืนยันลบบัญชีถาวร"
+                variant="red"
+                onPress={confirmDeleteAccount}
+                disabled={!deletePw}
+                loading={deleteAccountMutation.isPending}
+              />
+              <Button
+                title="ยกเลิก"
+                variant="ghost"
+                onPress={() => {
+                  setShowDeleteAccount(false);
+                  setDeletePw("");
+                  setDeleteError("");
+                }}
+              />
+            </View>
+          </>
         )}
       </Card>
 
