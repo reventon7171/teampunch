@@ -281,13 +281,18 @@ export type PayFrequency = "WEEKLY" | "MONTHLY" | "SEMI_MONTHLY";
 export interface PayrollConfig {
   frequency: PayFrequency;
   weeklyPayWeekday: number; // 0 (Sun) - 6 (Sat) — payday when frequency=WEEKLY
-  monthlyPayDay: number; // 1-28 — payday (of the following month) when frequency=MONTHLY
+  // 1-31 — payday (of the following month) when frequency=MONTHLY. A value past the month's
+  // last day (e.g. 31 in a 30-day month) clamps down to that month's actual last day, so 31
+  // doubles as "the last day of the month" for every month regardless of length.
+  monthlyPayDay: number;
   // Two cutoff-paydays per month when frequency=SEMI_MONTHLY (order doesn't matter — sorted
   // internally). Each period runs from the day AFTER the previous payday through this payday
   // (inclusive), paid same-day. E.g. paydays 5 & 20: the period paid the 5th covers the 21st
   // of last month through the 5th; the period paid the 20th covers the 6th through the 20th.
-  semiMonthlyPayDay1: number; // 1-28
-  semiMonthlyPayDay2: number; // 1-28
+  // 1-31 each, with the same last-day-of-month clamping as monthlyPayDay above — e.g. paydays
+  // 15 & 31 correctly split every month into 1-15 and 16-through-however-many-days-it-has.
+  semiMonthlyPayDay1: number;
+  semiMonthlyPayDay2: number;
   // Daily-wage employees are normally simply unpaid for a day they don't work — this adds an
   // optional extra flat penalty on top, admin-configured. Ignored for MONTHLY employees.
   dailyWageDeductAbsence: boolean;
@@ -321,6 +326,9 @@ export interface PeriodInfo {
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 const lastDayOfMonth = (y: number, m: number): number => new Date(y, m, 0).getDate();
+// Caps a configured payday to the actual number of days in that specific month, so a
+// configured 31 (or any day beyond the month's length) resolves to that month's last day.
+const clampDay = (y: number, m: number, day: number): number => Math.min(day, lastDayOfMonth(y, m));
 
 export const periodKeyFromDate = (dateStr: string, config: PayrollConfig): string => {
   switch (config.frequency) {
@@ -374,7 +382,7 @@ export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo
         payM = 1;
         payY += 1;
       }
-      const payDate = `${payY}-${pad2(payM)}-${pad2(config.monthlyPayDay)}`;
+      const payDate = `${payY}-${pad2(payM)}-${pad2(clampDay(payY, payM, config.monthlyPayDay))}`;
       return { periodKey, startDate, endDate, payDate, ym: periodKey };
     }
 
@@ -387,19 +395,19 @@ export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo
       const hi = Math.max(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
 
       if (half === "A") {
-        const endDate = `${yStr}-${mStr}-${pad2(lo)}`;
+        const endDate = `${yStr}-${mStr}-${pad2(clampDay(y, m, lo))}`;
         let py = y;
         let pm = m - 1;
         if (pm < 1) {
           pm = 12;
           py -= 1;
         }
-        const prevCutoff = `${py}-${pad2(pm)}-${pad2(hi)}`;
+        const prevCutoff = `${py}-${pad2(pm)}-${pad2(clampDay(py, pm, hi))}`;
         const startDate = shiftDateStr(prevCutoff, 1);
         return { periodKey, startDate, endDate, payDate: endDate, ym: `${yStr}-${mStr}` };
       }
-      const endDate = `${yStr}-${mStr}-${pad2(hi)}`;
-      const startDate = `${yStr}-${mStr}-${pad2(lo + 1)}`;
+      const endDate = `${yStr}-${mStr}-${pad2(clampDay(y, m, hi))}`;
+      const startDate = shiftDateStr(`${yStr}-${mStr}-${pad2(clampDay(y, m, lo))}`, 1);
       return { periodKey, startDate, endDate, payDate: endDate, ym: `${yStr}-${mStr}` };
     }
   }

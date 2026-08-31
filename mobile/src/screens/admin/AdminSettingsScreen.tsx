@@ -32,8 +32,12 @@ const FREQUENCY_LABELS: Record<PayFrequency, string> = {
   SEMI_MONTHLY: "แบ่งจ่าย 2 งวด/เดือน",
 };
 const PAY_FREQUENCIES: PayFrequency[] = ["WEEKLY", "MONTHLY", "SEMI_MONTHLY"];
-const DAY_OF_MONTH_OPTIONS = Array.from({ length: 28 }, (_, i) => ({ label: `วันที่ ${i + 1}`, value: String(i + 1) }));
+const DAY_OF_MONTH_OPTIONS = Array.from({ length: 31 }, (_, i) => ({
+  label: i + 1 === 31 ? "วันสุดท้ายของเดือน" : `วันที่ ${i + 1}`,
+  value: String(i + 1),
+}));
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+const dayLabel = (d: number) => (d === 31 ? "วันสุดท้ายของเดือน" : `วันที่ ${d}`);
 
 export function AdminSettingsScreen() {
   const { session, logout } = useAuth();
@@ -363,7 +367,7 @@ export function AdminSettingsScreen() {
               <>
                 <Text style={styles.label}>จ่ายวันที่ (ของเดือนถัดไป)</Text>
                 <Pressable style={styles.pickBox} onPress={() => setPayrollPicker("monthlyPayDay")}>
-                  <Text style={styles.pickBoxText}>วันที่ {payroll.monthlyPayDay}</Text>
+                  <Text style={styles.pickBoxText}>{dayLabel(payroll.monthlyPayDay)}</Text>
                 </Pressable>
               </>
             )}
@@ -371,16 +375,17 @@ export function AdminSettingsScreen() {
             {payroll.payFrequency === "SEMI_MONTHLY" && (
               <>
                 <Text style={styles.hint}>
-                  แต่ละงวดจะนับตั้งแต่วันถัดจากวันจ่ายก่อนหน้า ถึงวันจ่ายนี้ (จ่ายวันเดียวกับวันสิ้นสุดงวด) — เช่น ตั้งวันที่ 5 กับ 20:
-                  งวดจ่ายวันที่ 5 จะครอบคลุมวันที่ 21 ของเดือนก่อน ถึงวันที่ 5, งวดจ่ายวันที่ 20 จะครอบคลุมวันที่ 6-20
+                  แต่ละงวดจะนับตั้งแต่วันถัดจากวันจ่ายก่อนหน้า ถึงวันจ่ายนี้ (จ่ายวันเดียวกับวันสิ้นสุดงวด) — เช่น ตั้งวันที่ 15 กับ
+                  "วันสุดท้ายของเดือน": งวดจ่ายวันที่ 15 จะครอบคลุมวันที่ 1-15, งวดจ่ายวันสุดท้ายของเดือนจะครอบคลุมวันที่ 16
+                  ถึงวันสุดท้ายของเดือนนั้น (28-31 วัน แล้วแต่เดือน) โดยไม่ต้องตั้งวันที่ตายตัว
                 </Text>
                 <Text style={styles.label}>จ่ายงวดแรกวันที่</Text>
                 <Pressable style={styles.pickBox} onPress={() => setPayrollPicker("semi1")}>
-                  <Text style={styles.pickBoxText}>วันที่ {payroll.semiMonthlyPayDay1}</Text>
+                  <Text style={styles.pickBoxText}>{dayLabel(payroll.semiMonthlyPayDay1)}</Text>
                 </Pressable>
                 <Text style={styles.label}>จ่ายงวดที่สองวันที่</Text>
                 <Pressable style={styles.pickBox} onPress={() => setPayrollPicker("semi2")}>
-                  <Text style={styles.pickBoxText}>วันที่ {payroll.semiMonthlyPayDay2}</Text>
+                  <Text style={styles.pickBoxText}>{dayLabel(payroll.semiMonthlyPayDay2)}</Text>
                 </Pressable>
               </>
             )}

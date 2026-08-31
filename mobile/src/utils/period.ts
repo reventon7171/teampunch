@@ -6,6 +6,8 @@ export type PayFrequency = "WEEKLY" | "MONTHLY" | "SEMI_MONTHLY";
 export interface PayrollConfig {
   payFrequency: PayFrequency;
   weeklyPayWeekday: number;
+  // 1-31 — 31 (or any day past a given month's length) clamps to that month's actual last
+  // day, so it doubles as "the last day of the month" for every month regardless of length.
   monthlyPayDay: number;
   semiMonthlyPayDay1: number;
   semiMonthlyPayDay2: number;
@@ -47,6 +49,9 @@ export interface PeriodInfo {
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 const dateAt = (dateStr: string): Date => new Date(dateStr + "T00:00:00");
 const lastDayOfMonth = (y: number, m: number): number => new Date(y, m, 0).getDate();
+// Caps a configured payday to the actual number of days in that specific month, so a
+// configured 31 (or any day beyond the month's length) resolves to that month's last day.
+const clampDay = (y: number, m: number, day: number): number => Math.min(day, lastDayOfMonth(y, m));
 
 // local calendar date, never .toISOString() — that round-trips through UTC and shifts the
 // date backward a day in timezones ahead of UTC (e.g. Asia/Bangkok, UTC+7)
@@ -107,7 +112,7 @@ export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo
         payM = 1;
         payY += 1;
       }
-      const payDate = `${payY}-${pad2(payM)}-${pad2(config.monthlyPayDay)}`;
+      const payDate = `${payY}-${pad2(payM)}-${pad2(clampDay(payY, payM, config.monthlyPayDay))}`;
       return { periodKey, startDate, endDate, payDate, ym: periodKey };
     }
 
@@ -120,19 +125,19 @@ export const periodInfo = (periodKey: string, config: PayrollConfig): PeriodInfo
       const hi = Math.max(config.semiMonthlyPayDay1, config.semiMonthlyPayDay2);
 
       if (half === "A") {
-        const endDate = `${yStr}-${mStr}-${pad2(lo)}`;
+        const endDate = `${yStr}-${mStr}-${pad2(clampDay(y, m, lo))}`;
         let py = y;
         let pm = m - 1;
         if (pm < 1) {
           pm = 12;
           py -= 1;
         }
-        const prevCutoff = `${py}-${pad2(pm)}-${pad2(hi)}`;
+        const prevCutoff = `${py}-${pad2(pm)}-${pad2(clampDay(py, pm, hi))}`;
         const startDate = shiftDateStr(prevCutoff, 1);
         return { periodKey, startDate, endDate, payDate: endDate, ym: `${yStr}-${mStr}` };
       }
-      const endDate = `${yStr}-${mStr}-${pad2(hi)}`;
-      const startDate = `${yStr}-${mStr}-${pad2(lo + 1)}`;
+      const endDate = `${yStr}-${mStr}-${pad2(clampDay(y, m, hi))}`;
+      const startDate = shiftDateStr(`${yStr}-${mStr}-${pad2(clampDay(y, m, lo))}`, 1);
       return { periodKey, startDate, endDate, payDate: endDate, ym: `${yStr}-${mStr}` };
     }
   }

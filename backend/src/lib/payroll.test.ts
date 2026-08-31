@@ -322,6 +322,56 @@ describe("period helpers — SEMI_MONTHLY (paydays on the 5th & 20th)", () => {
   });
 });
 
+// A payday of 31 clamps to whatever the actual last day of that month is (28/29/30/31),
+// so admins can configure "15th & last day of the month" without a fixed day number.
+describe("period helpers — SEMI_MONTHLY (paydays on the 15th & last day of month)", () => {
+  const config: PayrollConfig = { ...DEFAULT_PAYROLL_CONFIG, semiMonthlyPayDay1: 15, semiMonthlyPayDay2: 31 };
+
+  it("the period paid the 15th covers the 1st through the 15th", () => {
+    const info = periodInfo("2026-08-A", config);
+    expect(info.startDate).toBe("2026-08-01");
+    expect(info.endDate).toBe("2026-08-15");
+    expect(info.payDate).toBe("2026-08-15");
+  });
+
+  it("the period paid on the last day covers the 16th through the actual last day, for a 31-day month", () => {
+    const info = periodInfo("2026-08-B", config);
+    expect(info.startDate).toBe("2026-08-16");
+    expect(info.endDate).toBe("2026-08-31");
+    expect(info.payDate).toBe("2026-08-31");
+  });
+
+  it("clamps to the 30th for a 30-day month", () => {
+    const info = periodInfo("2026-09-B", config);
+    expect(info.startDate).toBe("2026-09-16");
+    expect(info.endDate).toBe("2026-09-30");
+  });
+
+  it("clamps to the 28th for February in a non-leap year", () => {
+    const info = periodInfo("2026-02-B", config);
+    expect(info.startDate).toBe("2026-02-16");
+    expect(info.endDate).toBe("2026-02-28");
+  });
+
+  it("clamps to the 29th for February in a leap year", () => {
+    const info = periodInfo("2028-02-B", config);
+    expect(info.startDate).toBe("2028-02-16");
+    expect(info.endDate).toBe("2028-02-29");
+  });
+
+  it("the next period's A start date correctly rolls off the previous (clamped) month-end", () => {
+    // September has 30 days, so the B period paid "the 31st" actually ends the 30th — the
+    // following A period must start the 1st, not skip a day waiting for a nonexistent 31st.
+    const info = periodInfo("2026-10-A", config);
+    expect(info.startDate).toBe("2026-10-01");
+  });
+
+  it("periodKeyFromDate never overflows into next month's A, since nothing exceeds a 31-day cutoff", () => {
+    expect(periodKeyFromDate("2026-09-30", config)).toBe("2026-09-B");
+    expect(periodKeyFromDate("2026-02-28", config)).toBe("2026-02-B");
+  });
+});
+
 describe("period helpers — SEMI_MONTHLY (default config, paydays 16th & 1st)", () => {
   it("periodInfo computes the cutoff-to-payday boundaries", () => {
     // default paydays are 16 and 1 -> sorted cutoffs lo=1, hi=16
