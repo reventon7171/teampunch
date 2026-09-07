@@ -66,6 +66,14 @@ export const resetAdminPassword = async (slug: string, username: string, code: s
   await api.post("/api/auth/admin/reset-password", { slug, username, code, newPassword });
 };
 
+export const registerAdminPushToken = async (token: string) => {
+  await api.put("/api/admin/push-token", { token });
+};
+
+export const unregisterAdminPushToken = async (token: string) => {
+  await api.delete("/api/admin/push-token", { data: { token } });
+};
+
 export type WorkplaceLocation = { lat: number; lng: number; radiusMeters: number; enabled: boolean };
 
 export const getWorkplaceLocation = async () => {

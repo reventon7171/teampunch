@@ -11,6 +11,7 @@ import { serializeDayOffSwap } from "../lib/serialize";
 import { badRequest, conflict, notFound } from "../lib/errors";
 import { isWeeklyDayOff } from "../lib/payroll";
 import { todayStrBangkok } from "../lib/thaiTime";
+import { sendPushToAdmins } from "../lib/push";
 
 const router = Router();
 router.use(requireAuth);
@@ -52,6 +53,14 @@ router.post(
         status: "PENDING",
       },
     });
+
+    sendPushToAdmins(
+      emp.organizationId,
+      "มีคำขอสลับวันหยุดใหม่",
+      `${emp.name} ขอสลับวันหยุด ${swap.originalOffDate} ไปเป็น ${swap.swappedToDate}`,
+      { type: "dayOffSwap", id: swap.id }
+    );
+
     res.status(201).json(serializeDayOffSwap(swap));
   })
 );

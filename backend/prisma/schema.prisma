@@ -110,7 +110,23 @@ model Admin {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  pushTokens AdminPushToken[]
+
   @@unique([organizationId, username])
+}
+
+// An Expo push token for one admin's device. One admin can hold several rows (e.g. phone +
+// a reinstalled app), so a push send fans out to every row instead of a single column on
+// Admin — the unique constraint on `token` alone (not per-admin) means re-registering the
+// same device after logging in as a different admin moves that row over instead of erroring.
+model AdminPushToken {
+  id        String   @id @default(uuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
 }
 
 model Employee {

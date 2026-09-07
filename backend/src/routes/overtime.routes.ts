@@ -6,6 +6,7 @@ import { createOvertimeSchema, overtimeStatusSchema, overtimeQuerySchema } from 
 import { serializeOvertime } from "../lib/serialize";
 import { overtimeDurationHours } from "../lib/payroll";
 import { badRequest, notFound } from "../lib/errors";
+import { sendPushToAdmins } from "../lib/push";
 
 const router = Router();
 router.use(requireAuth);
@@ -29,7 +30,15 @@ router.post(
         reason: input.reason,
         status: "PENDING",
       },
+      include: { employee: { select: { name: true } } },
     });
+
+    sendPushToAdmins(
+      req.user!.organizationId,
+      "มีคำขอ OT ใหม่",
+      `${overtime.employee.name} ขอ OT วันที่ ${overtime.date} (${overtime.hours} ชม.)`,
+      { type: "overtime", id: overtime.id }
+    );
 
     res.status(201).json(serializeOvertime(overtime));
   })

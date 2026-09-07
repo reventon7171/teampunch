@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import * as SecureStore from "expo-secure-store";
-import { adminLogin, employeeLogin, registerOrg } from "../api/auth";
+import { adminLogin, employeeLogin, registerOrg, registerAdminPushToken, unregisterAdminPushToken } from "../api/auth";
 import { setAuthToken, setUnauthorizedHandler } from "../api/client";
 import { Employee } from "../api/types";
+import { registerForPushNotificationsAsync } from "../lib/pushNotifications";
 
 const STORAGE_KEY = "punchcard_auth_session";
 const SLUG_STORAGE_KEY = "punchcard_last_org_slug";
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastSlug, setLastSlug] = useState("");
+  const pushTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -67,8 +69,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (pushTokenRef.current) {
+      unregisterAdminPushToken(pushTokenRef.current).catch(() => {});
+      pushTokenRef.current = null;
+    }
     await persistSession(null);
   }, [persistSession]);
+
+  // Registers this device's push token with the server whenever an admin is signed in — on
+  // fresh login and again on every app start/foreground, since the OS token can change (e.g.
+  // after a reinstall) and re-registering an unchanged token is a harmless upsert server-side.
+  useEffect(() => {
+    if (session?.role !== "admin") return;
+    let cancelled = false;
+    registerForPushNotificationsAsync()
+      .then((token) => {
+        if (cancelled || !token) return;
+        pushTokenRef.current = token;
+        registerAdminPushToken(token).catch(() => {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.role, session?.token]);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {

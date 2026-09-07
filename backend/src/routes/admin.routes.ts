@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { changePasswordSchema, setAdminEmailSchema, deleteAccountSchema } from "../validators/auth.validators";
+import { changePasswordSchema, setAdminEmailSchema, deleteAccountSchema, pushTokenSchema } from "../validators/auth.validators";
 import { hashPassword, verifyPassword } from "../lib/password";
 import { unauthorized } from "../lib/errors";
 
@@ -66,6 +66,34 @@ router.delete(
       throw unauthorized("รหัสผ่านไม่ถูกต้อง");
     }
     await prisma.organization.delete({ where: { id: req.user!.organizationId } });
+    res.json({ ok: true });
+  })
+);
+
+// Registers this device for push notifications (new leave/OT/day-off-swap requests). `token`
+// is globally unique in the table, not scoped per-admin, so re-registering the same physical
+// device under a different admin (e.g. after logging out and into another account on it)
+// moves the row to the new owner instead of erroring.
+router.put(
+  "/push-token",
+  asyncHandler(async (req, res) => {
+    const { token } = pushTokenSchema.parse(req.body);
+    await prisma.adminPushToken.upsert({
+      where: { token },
+      create: { token, adminId: req.user!.id },
+      update: { adminId: req.user!.id },
+    });
+    res.json({ ok: true });
+  })
+);
+
+// Called on logout so a shared/reset device stops receiving this admin's notifications.
+// Silently no-ops if the token was already removed (e.g. by Expo's DeviceNotRegistered prune).
+router.delete(
+  "/push-token",
+  asyncHandler(async (req, res) => {
+    const { token } = pushTokenSchema.parse(req.body);
+    await prisma.adminPushToken.deleteMany({ where: { token, adminId: req.user!.id } });
     res.json({ ok: true });
   })
 );

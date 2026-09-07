@@ -37,6 +37,10 @@ export const forgotPasswordSchema = z.object({
   username: z.string().min(1),
 });
 
+export const pushTokenSchema = z.object({
+  token: z.string().min(1, "กรุณาระบุ push token"),
+});
+
 export const deleteAccountSchema = z.object({
   currentPassword: z.string().min(1, "กรุณากรอกรหัสผ่านเพื่อยืนยัน"),
 });

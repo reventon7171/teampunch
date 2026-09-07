@@ -7,6 +7,9 @@ import { savePhoto, readPhoto } from "../lib/storage";
 import { createLeaveSchema, leaveStatusSchema, leaveQuerySchema } from "../validators/leave.validators";
 import { serializeLeave } from "../lib/serialize";
 import { notFound, forbidden } from "../lib/errors";
+import { sendPushToAdmins } from "../lib/push";
+
+const leaveTypeLabel: Record<string, string> = { SICK: "ลาป่วย", PERSONAL: "ลากิจ", VACATION: "ลาพักร้อน" };
 
 const router = Router();
 router.use(requireAuth);
@@ -35,7 +38,15 @@ router.post(
         photoPath: photoKey,
         status: "PENDING",
       },
+      include: { employee: { select: { name: true } } },
     });
+
+    sendPushToAdmins(
+      organizationId,
+      "มีคำขอลาใหม่",
+      `${leave.employee.name} ขอ${leaveTypeLabel[leave.type] ?? "ลา"} วันที่ ${leave.date}`,
+      { type: "leave", id: leave.id }
+    );
 
     res.status(201).json(serializeLeave(leave));
   })
