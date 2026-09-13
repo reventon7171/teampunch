@@ -28,6 +28,17 @@ const envSchema = z.object({
   // email is that same address (pre-launch/friends-only), but switch to a verified custom
   // domain address before this needs to reach admins generally.
   RESEND_FROM_EMAIL: z.string().default("TeamPunch <onboarding@resend.dev>"),
+
+  // Force-update gate (see /api/app-version) — bump MIN_APP_VERSION after a release that
+  // fixes something serious enough that old clients shouldn't keep running. Compared against
+  // the installed app's own version (app.json "version" / CFBundleShortVersionString /
+  // versionName), so it must stay a plain "major.minor.patch" string, not a build number.
+  MIN_APP_VERSION: z.string().default("1.0.2"),
+  IOS_STORE_URL: z.string().default("https://apps.apple.com/th/app/teampunch/id6804602076"),
+  // No Play Store listing yet — this points at the latest signed APK instead of a store page.
+  ANDROID_UPDATE_URL: z
+    .string()
+    .default("https://expo.dev/accounts/reventon13/projects/teampunch/builds/dbd0f939-e9f2-4cc0-b922-68ae3345fcb8"),
 });
 
 const parsed = envSchema.safeParse(process.env);

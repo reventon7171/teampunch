@@ -24,6 +24,17 @@ app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+// Public (no auth) — checked by the app on every launch before login, so an admin/employee
+// on a version older than MIN_APP_VERSION gets a blocking "please update" screen instead of
+// quietly running against a backend that has moved on.
+app.get("/api/app-version", (_req, res) =>
+  res.json({
+    minVersion: env.MIN_APP_VERSION,
+    iosUrl: env.IOS_STORE_URL,
+    androidUrl: env.ANDROID_UPDATE_URL,
+  })
+);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/attendance", attendanceRoutes);
