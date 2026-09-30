@@ -17,7 +17,8 @@ import {
   lateDeductionAmount,
   hourlyRate,
   weekdayLabel,
-  isCheckOutTooLate,
+  isCheckOutAllowed,
+  addMinutesToTime,
   shiftDateStr,
 } from "../lib/payroll";
 
@@ -159,8 +160,14 @@ router.post(
     if (!existing?.checkInTime) throw badRequest("กรุณาตอกบัตรเข้างานก่อน");
     if (existing.checkOutTime) throw conflict("วันนี้ตอกบัตรออกงานไปแล้ว");
 
-    if (isCheckOutTooLate(emp.workEnd, time)) {
-      throw conflict(`เช็คเอาท์ได้ไม่เกิน 1 ชั่วโมงหลังเวลาเลิกงาน (${emp.workEnd})`);
+    if (!isCheckOutAllowed(emp.workEnd, time, emp.checkOutBeforeMinutes, emp.checkOutAfterMinutes)) {
+      const before = emp.checkOutBeforeMinutes ?? 0;
+      const after = emp.checkOutAfterMinutes ?? 0;
+      const message =
+        before === 0 && after === 0
+          ? `เช็คเอาท์ได้เฉพาะเวลาเลิกงานพอดี (${emp.workEnd}) กรุณาติดต่อแอดมินหากต้องการช่วงเวลาที่ยืดหยุ่นกว่านี้`
+          : `เช็คเอาท์ได้เฉพาะช่วง ${addMinutesToTime(emp.workEnd, -before)}-${addMinutesToTime(emp.workEnd, after)} (เวลาเลิกงาน ${emp.workEnd})`;
+      throw conflict(message);
     }
 
     const photoKey = randomPhotoKey(`org/${organizationId}/emp/${emp.id}/checkout`, req.file.mimetype);

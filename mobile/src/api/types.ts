@@ -15,6 +15,10 @@ export interface Employee {
   wageType: WageType;
   absenceDeductionByWeekday: number[]; // baht per absence, indexed 0 (Sun) - 6 (Sat)
   shiftId: string | null;
+  // minutes of leeway around workEnd this employee may check out within. Both null means
+  // checkout is only accepted at workEnd exactly.
+  checkOutBeforeMinutes: number | null;
+  checkOutAfterMinutes: number | null;
   createdAt: string;
 }
 

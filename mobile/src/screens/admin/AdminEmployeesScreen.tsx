@@ -39,6 +39,8 @@ const emptyForm: EmployeeInput = {
   socialSecurityRate: 0,
   wageType: "MONTHLY",
   absenceDeductionByWeekday: [0, 0, 0, 0, 0, 0, 0],
+  checkOutBeforeMinutes: null,
+  checkOutAfterMinutes: null,
   username: "",
   password: "",
 };
@@ -72,6 +74,8 @@ export function AdminEmployeesScreen() {
       wageType: emp.wageType,
       absenceDeductionByWeekday: emp.absenceDeductionByWeekday,
       shiftId: emp.shiftId,
+      checkOutBeforeMinutes: emp.checkOutBeforeMinutes,
+      checkOutAfterMinutes: emp.checkOutAfterMinutes,
       username: emp.username,
       password: "",
     });
@@ -265,6 +269,38 @@ export function AdminEmployeesScreen() {
           )}
           <TimeField label="เวลาเข้างาน" value={form.workStart} onChange={(v) => setForm({ ...form, workStart: v, shiftId: null })} />
           <TimeField label="เวลาออกงาน" value={form.workEnd} onChange={(v) => setForm({ ...form, workEnd: v, shiftId: null })} />
+
+          <Text style={styles.label}>ช่วงเวลาที่เช็คเอาท์ได้</Text>
+          <Text style={styles.hint}>
+            ถ้าเว้นว่างไว้ พนักงานคนนี้ต้องเช็คเอาท์ในเวลาเลิกงานพอดี ({form.workEnd}) เท่านั้น
+          </Text>
+          <View style={styles.checkOutWindowRow}>
+            <View style={styles.checkOutWindowItem}>
+              <TextField
+                label="ออกก่อนได้ (นาที)"
+                value={form.checkOutBeforeMinutes != null ? String(form.checkOutBeforeMinutes) : ""}
+                onChangeText={(v) => {
+                  const n = v.replace(/[^0-9]/g, "");
+                  setForm({ ...form, checkOutBeforeMinutes: n === "" ? null : Number(n) });
+                }}
+                keyboardType="numeric"
+                placeholder="0"
+              />
+            </View>
+            <View style={styles.checkOutWindowItem}>
+              <TextField
+                label="ออกหลังได้ (นาที)"
+                value={form.checkOutAfterMinutes != null ? String(form.checkOutAfterMinutes) : ""}
+                onChangeText={(v) => {
+                  const n = v.replace(/[^0-9]/g, "");
+                  setForm({ ...form, checkOutAfterMinutes: n === "" ? null : Number(n) });
+                }}
+                keyboardType="numeric"
+                placeholder="0"
+              />
+            </View>
+          </View>
+
           <DateField
             label="วันที่เริ่มงาน"
             value={form.hireDate}
@@ -336,6 +372,12 @@ export function AdminEmployeesScreen() {
                 เริ่มงาน {emp.hireDate ? formatThaiDate(emp.hireDate) : "ไม่ระบุ"} · ทำงานมาแล้ว {formatTenure(emp.hireDate)}
               </Text>
               <Text style={styles.empDetail}>Username: {emp.username}</Text>
+              <Text style={styles.empDetail}>
+                เช็คเอาท์ได้:{" "}
+                {emp.checkOutBeforeMinutes || emp.checkOutAfterMinutes
+                  ? `ก่อน ${emp.checkOutBeforeMinutes ?? 0} นาที – หลัง ${emp.checkOutAfterMinutes ?? 0} นาที`
+                  : `เวลาเลิกงานพอดี (${emp.workEnd})`}
+              </Text>
               {emp.socialSecurityRate > 0 && (
                 <Text style={styles.empDetail}>หักประกันสังคม {emp.socialSecurityRate}% ของเงินเดือนแต่ละงวด</Text>
               )}
@@ -380,6 +422,8 @@ const styles = StyleSheet.create({
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.md },
   absenceDeductionGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.md },
   absenceDeductionItem: { width: "31%" },
+  checkOutWindowRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.xs },
+  checkOutWindowItem: { flex: 1 },
   switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
   switchLabel: { fontSize: fontSize.sm, color: colors.ink, fontWeight: "600", flex: 1, marginRight: spacing.sm },
   chip: { borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, paddingVertical: 5, paddingHorizontal: 10, backgroundColor: colors.white },

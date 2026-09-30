@@ -157,6 +157,11 @@ model Employee {
   // themself. Null means "custom hours, not tied to a preset shift".
   shiftId      String?
   shift        Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  // Checkout window around workEnd, in minutes. Both null (the default on every new employee)
+  // means zero leeway — checkout is only accepted at workEnd exactly — so an admin who wants
+  // any flexibility for a given employee must set these explicitly.
+  checkOutBeforeMinutes Int?
+  checkOutAfterMinutes  Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

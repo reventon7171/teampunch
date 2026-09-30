@@ -101,8 +101,6 @@ export const computeLateMinutes = (workStart: string, checkinTime: string): numb
   return Math.max(0, diff);
 };
 
-export const LATE_CHECKOUT_WINDOW_MINUTES = 60;
-
 // signed minutes from `fromTime` to `toTime` (both "HH:MM"), wrapped to whichever direction
 // is shorter — same trick as computeLateMinutes, so a pair of times close to midnight on
 // either side of it still comes out as a small number instead of ~1440
@@ -113,10 +111,26 @@ const minutesBetween = (fromTime: string, toTime: string): number => {
   return diff;
 };
 
-// true if `nowTime` is more than LATE_CHECKOUT_WINDOW_MINUTES minutes after `workEnd` —
-// no early-side restriction, only a deadline for closing out the shift
-export const isCheckOutTooLate = (workEnd: string, nowTime: string): boolean =>
-  minutesBetween(workEnd, nowTime) > LATE_CHECKOUT_WINDOW_MINUTES;
+export const addMinutesToTime = (time: string, minutes: number): string => {
+  const total = (((toMinutes(time) + minutes) % 1440) + 1440) % 1440;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+};
+
+// true if `nowTime` falls inside this employee's own checkout window around `workEnd`:
+// [workEnd - beforeMinutes, workEnd + afterMinutes]. A missing (null/undefined) bound counts
+// as 0 — an employee with neither set can only check out at the exact workEnd minute, so an
+// admin who wants any leeway for them has to configure it explicitly (see Employee model).
+export const isCheckOutAllowed = (
+  workEnd: string,
+  nowTime: string,
+  beforeMinutes: number | null | undefined,
+  afterMinutes: number | null | undefined
+): boolean => {
+  const diff = minutesBetween(workEnd, nowTime);
+  return diff >= -(beforeMinutes ?? 0) && diff <= (afterMinutes ?? 0);
+};
 
 // deduction in fixed 60-minute buckets counted from the first late minute:
 // late 1-60 min = 1hr, 61-120 min = 2hr, 121-180 min = 3hr, and so on

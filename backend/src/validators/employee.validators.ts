@@ -17,6 +17,10 @@ export const createEmployeeSchema = z.object({
   absenceDeductionByWeekday: z.array(z.coerce.number().min(0)).length(7).default([0, 0, 0, 0, 0, 0, 0]),
   // when set, workStart/workEnd above are overridden with this shift's times server-side
   shiftId: z.string().uuid().nullable().optional(),
+  // minutes of leeway around workEnd this employee may check out within. Both null (the
+  // default) means checkout is only accepted at workEnd exactly.
+  checkOutBeforeMinutes: z.coerce.number().int().min(0).max(720).nullable().optional(),
+  checkOutAfterMinutes: z.coerce.number().int().min(0).max(720).nullable().optional(),
   username: z
     .string()
     .min(3, "Username ต้องมีอย่างน้อย 3 ตัวอักษร")

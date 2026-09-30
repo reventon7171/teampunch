@@ -10,13 +10,19 @@ import { StampedCapture, StampedCaptureHandle } from "../../components/StampedCa
 import { ChoiceModal } from "../../components/ChoiceModal";
 import { DateListModal } from "../../components/DateListModal";
 import { useAuth } from "../../context/AuthContext";
-import { checkIn, getTodayStatus, PunchPhoto } from "../../api/attendance";
+import { checkIn, checkOut, getTodayStatus, PunchPhoto } from "../../api/attendance";
 import { getMyPayroll } from "../../api/payroll";
-import { setMyShift } from "../../api/employees";
+import { getEmployee, setMyShift } from "../../api/employees";
 import { listShifts } from "../../api/shifts";
 import { periodKeyFromDate, todayStr } from "../../utils/period";
 import { usePayrollConfig } from "../../hooks/usePayrollConfig";
 import { colors, fontSize, radius, spacing } from "../../theme";
+
+const addMinutes = (hhmm: string, delta: number): string => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = (((h * 60 + m + delta) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+};
 
 function useClock() {
   const [now, setNow] = useState(new Date());
@@ -78,6 +84,28 @@ export function PunchScreen() {
     onError: (e) => setError(e instanceof Error ? e.message : "เช็คอินไม่สำเร็จ"),
   });
 
+  const checkOutMutation = useMutation({
+    mutationFn: async () => {
+      const stamped = await stampRef.current!.capture();
+      return checkOut(geo!.lat, geo!.lng, stamped);
+    },
+    onSuccess: () => {
+      resetCapture();
+      setError("");
+      qc.invalidateQueries({ queryKey: ["today"] });
+      qc.invalidateQueries({ queryKey: ["myAttendance"] });
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : "เช็คเอาท์ไม่สำเร็จ"),
+  });
+
+  // the session copy of the employee is only refreshed at login, so read the checkout window
+  // fresh — an admin may have changed it since
+  const meQuery = useQuery({
+    queryKey: ["me", employee?.id],
+    queryFn: () => getEmployee(employee!.id),
+    enabled: !!employee,
+  });
+
   const captureLocation = async () => {
     setGeoStatus("กำลังขอตำแหน่ง...");
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -114,7 +142,47 @@ export function PunchScreen() {
   const isOffToday = today?.isOffToday ?? false;
   const readyToSubmit = !!geo && !!photo;
   const alreadyCheckedIn = !!record?.checkInTime;
+  const alreadyCheckedOut = !!record?.checkOutTime;
   const canCheckIn = !isOffToday && !alreadyCheckedIn;
+  const canCheckOut = alreadyCheckedIn && !alreadyCheckedOut;
+
+  const me = meQuery.data ?? employee;
+  const before = me.checkOutBeforeMinutes ?? 0;
+  const after = me.checkOutAfterMinutes ?? 0;
+  const checkOutWindowText =
+    before === 0 && after === 0
+      ? `เช็คเอาท์ได้เฉพาะเวลาเลิกงานพอดี (${me.workEnd})`
+      : `เช็คเอาท์ได้ช่วง ${addMinutes(me.workEnd, -before)}–${addMinutes(me.workEnd, after)}`;
+
+  const captureBlock = (
+    <>
+      <View style={styles.captureGrid}>
+        <Pressable style={styles.captureCard} onPress={captureLocation}>
+          <Text style={styles.captureIcon}>📍</Text>
+          <Text style={styles.captureTitle}>ตำแหน่ง</Text>
+          <Text style={[styles.captureSub, geo && styles.captureSubDone]}>
+            {geo ? "ยืนยันแล้ว" : geoStatus || "แตะเพื่อตรวจสอบ"}
+          </Text>
+        </Pressable>
+        <Pressable style={styles.captureCard} onPress={capturePhoto}>
+          <Text style={styles.captureIcon}>📷</Text>
+          <Text style={styles.captureTitle}>รูปถ่าย</Text>
+          {photo ? (
+            <Image source={{ uri: photo.uri }} style={styles.thumb} />
+          ) : (
+            <Text style={styles.captureSub}>แตะเพื่อถ่าย</Text>
+          )}
+        </Pressable>
+      </View>
+
+      {photo && geo && (
+        <View style={styles.previewBlock}>
+          <Text style={styles.previewLabel}>ตัวอย่างรูปที่จะบันทึก (มีวันที่ เวลา และแผนที่ตำแหน่ง)</Text>
+          <StampedCapture ref={stampRef} photoUri={photo.uri} geo={geo} />
+        </View>
+      )}
+    </>
+  );
 
   const p = payrollQuery.data;
 
@@ -164,32 +232,7 @@ export function PunchScreen() {
 
         {canCheckIn && (
           <>
-            <View style={styles.captureGrid}>
-              <Pressable style={styles.captureCard} onPress={captureLocation}>
-                <Text style={styles.captureIcon}>📍</Text>
-                <Text style={styles.captureTitle}>ตำแหน่ง</Text>
-                <Text style={[styles.captureSub, geo && styles.captureSubDone]}>
-                  {geo ? "ยืนยันแล้ว" : geoStatus || "แตะเพื่อตรวจสอบ"}
-                </Text>
-              </Pressable>
-              <Pressable style={styles.captureCard} onPress={capturePhoto}>
-                <Text style={styles.captureIcon}>📷</Text>
-                <Text style={styles.captureTitle}>รูปถ่าย</Text>
-                {photo ? (
-                  <Image source={{ uri: photo.uri }} style={styles.thumb} />
-                ) : (
-                  <Text style={styles.captureSub}>แตะเพื่อถ่าย</Text>
-                )}
-              </Pressable>
-            </View>
-
-            {photo && geo && (
-              <View style={styles.previewBlock}>
-                <Text style={styles.previewLabel}>ตัวอย่างรูปที่จะบันทึก (มีวันที่ เวลา และแผนที่ตำแหน่ง)</Text>
-                <StampedCapture ref={stampRef} photoUri={photo.uri} geo={geo} />
-              </View>
-            )}
-
+            {captureBlock}
             <Button
               title="🟢  เช็คอินเข้างาน"
               variant="navy"
@@ -203,13 +246,18 @@ export function PunchScreen() {
         )}
 
         {alreadyCheckedIn && (
-          <View style={styles.doneCard}>
+          <View style={[styles.doneCard, canCheckOut && styles.doneCardSpaced]}>
             <View style={styles.doneIconBox}>
-              <Text style={styles.doneIconEmoji}>✅</Text>
+              <Text style={styles.doneIconEmoji}>{alreadyCheckedOut ? "🏁" : "✅"}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.doneText}>วันนี้คุณบันทึกการเข้างานแล้ว</Text>
-              <Text style={styles.doneSub}>เข้างาน {record?.checkInTime}</Text>
+              <Text style={styles.doneText}>
+                {alreadyCheckedOut ? "วันนี้คุณเลิกงานเรียบร้อยแล้ว" : "วันนี้คุณบันทึกการเข้างานแล้ว"}
+              </Text>
+              <Text style={styles.doneSub}>
+                เข้างาน {record?.checkInTime}
+                {alreadyCheckedOut ? ` · ออกงาน ${record?.checkOutTime}` : ""}
+              </Text>
             </View>
             {record && (record.lateMinutes >= 1 ? (
               <Tag tone="late" label={`สาย ${record.lateMinutes} นาที`} />
@@ -217,6 +265,22 @@ export function PunchScreen() {
               <Tag tone="ontime" label="ตรงเวลา" />
             ))}
           </View>
+        )}
+
+        {canCheckOut && (
+          <>
+            <Text style={styles.checkOutWindow}>{checkOutWindowText}</Text>
+            {captureBlock}
+            <Button
+              title="🔴  เช็คเอาท์ออกงาน"
+              variant="red"
+              fullWidth
+              disabled={!readyToSubmit}
+              loading={checkOutMutation.isPending}
+              onPress={() => checkOutMutation.mutate()}
+            />
+            {!readyToSubmit && <Text style={styles.hint}>ต้องตรวจสอบตำแหน่งและถ่ายรูปให้ครบก่อนตอกบัตร</Text>}
+          </>
         )}
 
         {p && (
@@ -339,6 +403,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  doneCardSpaced: { marginBottom: spacing.md },
+  checkOutWindow: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.creamInk,
+    textAlign: "center",
+    marginBottom: spacing.sm,
   },
   doneIconBox: {
     width: 36,

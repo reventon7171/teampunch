@@ -2,7 +2,8 @@ import {
   dailyHours,
   hourlyRate,
   computeLateMinutes,
-  isCheckOutTooLate,
+  isCheckOutAllowed,
+  addMinutesToTime,
   overtimeDurationHours,
   absenceDatesInRange,
   shiftDateStr,
@@ -61,21 +62,33 @@ describe("computeLateMinutes", () => {
   });
 });
 
-describe("isCheckOutTooLate", () => {
-  it("allows checkout exactly at the 1-hour-late boundary, blocks past it", () => {
-    // shift ends 01:00 (overnight), checkout at 02:00 is exactly +60 min — allowed
-    expect(isCheckOutTooLate("01:00", "02:00")).toBe(false);
-    // 02:01 is +61 min — too late
-    expect(isCheckOutTooLate("01:00", "02:01")).toBe(true);
+describe("isCheckOutAllowed", () => {
+  it("with no window set (both null), only the exact workEnd minute is allowed", () => {
+    expect(isCheckOutAllowed("18:00", "18:00", null, null)).toBe(true);
+    expect(isCheckOutAllowed("18:00", "17:59", null, null)).toBe(false);
+    expect(isCheckOutAllowed("18:00", "18:01", null, null)).toBe(false);
   });
 
-  it("never blocks an early checkout, however early", () => {
-    expect(isCheckOutTooLate("01:00", "18:00")).toBe(false); // leaving hours before an overnight shift even ends
+  it("respects the configured before/after minute bounds", () => {
+    expect(isCheckOutAllowed("18:00", "17:50", 10, 15)).toBe(true); // exactly -10
+    expect(isCheckOutAllowed("18:00", "17:49", 10, 15)).toBe(false); // -11, outside
+    expect(isCheckOutAllowed("18:00", "18:15", 10, 15)).toBe(true); // exactly +15
+    expect(isCheckOutAllowed("18:00", "18:16", 10, 15)).toBe(false); // +16, outside
   });
 
-  it("blocks a same-day-shift checkout well past closing time", () => {
-    expect(isCheckOutTooLate("18:00", "20:00")).toBe(true); // 2 hours late
-    expect(isCheckOutTooLate("18:00", "18:45")).toBe(false); // 45 min late, within window
+  it("handles an overnight workEnd", () => {
+    // shift ends 01:00 (overnight); checking out at 00:50 is 10 min early, within a 15-min window
+    expect(isCheckOutAllowed("01:00", "00:50", 15, 15)).toBe(true);
+    expect(isCheckOutAllowed("01:00", "01:10", 15, 15)).toBe(true);
+  });
+});
+
+describe("addMinutesToTime", () => {
+  it("adds and subtracts minutes, wrapping across midnight", () => {
+    expect(addMinutesToTime("18:00", 30)).toBe("18:30");
+    expect(addMinutesToTime("18:00", -30)).toBe("17:30");
+    expect(addMinutesToTime("23:50", 20)).toBe("00:10");
+    expect(addMinutesToTime("00:10", -20)).toBe("23:50");
   });
 });
 

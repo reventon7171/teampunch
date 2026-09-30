@@ -62,6 +62,8 @@ export const serializeEmployee = (emp: Employee) => ({
   wageType: emp.wageType,
   absenceDeductionByWeekday: emp.absenceDeductionByWeekday.map(Number),
   shiftId: emp.shiftId,
+  checkOutBeforeMinutes: emp.checkOutBeforeMinutes,
+  checkOutAfterMinutes: emp.checkOutAfterMinutes,
   createdAt: emp.createdAt,
 });
 
