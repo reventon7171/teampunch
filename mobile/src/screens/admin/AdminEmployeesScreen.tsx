@@ -272,7 +272,7 @@ export function AdminEmployeesScreen() {
 
           <Text style={styles.label}>ช่วงเวลาที่เช็คเอาท์ได้</Text>
           <Text style={styles.hint}>
-            ถ้าเว้นว่างไว้ พนักงานคนนี้ต้องเช็คเอาท์ในเวลาเลิกงานพอดี ({form.workEnd}) เท่านั้น
+            "ออกก่อนได้" เว้นว่าง = ออกก่อน {form.workEnd} ไม่ได้ · "ออกหลังได้" เว้นว่าง = อยู่เลยเวลาเลิกงานแล้วเช็คเอาท์เมื่อไหร่ก็ได้
           </Text>
           <View style={styles.checkOutWindowRow}>
             <View style={styles.checkOutWindowItem}>
@@ -374,9 +374,8 @@ export function AdminEmployeesScreen() {
               <Text style={styles.empDetail}>Username: {emp.username}</Text>
               <Text style={styles.empDetail}>
                 เช็คเอาท์ได้:{" "}
-                {emp.checkOutBeforeMinutes || emp.checkOutAfterMinutes
-                  ? `ก่อน ${emp.checkOutBeforeMinutes ?? 0} นาที – หลัง ${emp.checkOutAfterMinutes ?? 0} นาที`
-                  : `เวลาเลิกงานพอดี (${emp.workEnd})`}
+                {emp.checkOutBeforeMinutes ? `ก่อนเลิกงาน ${emp.checkOutBeforeMinutes} นาที` : `ตั้งแต่ ${emp.workEnd}`}
+                {emp.checkOutAfterMinutes != null ? ` ถึงหลังเลิกงาน ${emp.checkOutAfterMinutes} นาที` : " เป็นต้นไป"}
               </Text>
               {emp.socialSecurityRate > 0 && (
                 <Text style={styles.empDetail}>หักประกันสังคม {emp.socialSecurityRate}% ของเงินเดือนแต่ละงวด</Text>

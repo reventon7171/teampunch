@@ -119,9 +119,9 @@ export const addMinutesToTime = (time: string, minutes: number): string => {
 };
 
 // true if `nowTime` falls inside this employee's own checkout window around `workEnd`:
-// [workEnd - beforeMinutes, workEnd + afterMinutes]. A missing (null/undefined) bound counts
-// as 0 — an employee with neither set can only check out at the exact workEnd minute, so an
-// admin who wants any leeway for them has to configure it explicitly (see Employee model).
+// [workEnd - beforeMinutes, workEnd + afterMinutes]. A missing beforeMinutes means no early
+// checkout at all; a missing afterMinutes means no late cutoff (staying late is always fine).
+// "Late" is capped by minutesBetween's 12-hour wrap either way.
 export const isCheckOutAllowed = (
   workEnd: string,
   nowTime: string,
@@ -129,7 +129,8 @@ export const isCheckOutAllowed = (
   afterMinutes: number | null | undefined
 ): boolean => {
   const diff = minutesBetween(workEnd, nowTime);
-  return diff >= -(beforeMinutes ?? 0) && diff <= (afterMinutes ?? 0);
+  if (diff < -(beforeMinutes ?? 0)) return false;
+  return afterMinutes == null || diff <= afterMinutes;
 };
 
 // deduction in fixed 60-minute buckets counted from the first late minute:

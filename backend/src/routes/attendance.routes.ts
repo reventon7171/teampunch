@@ -161,12 +161,11 @@ router.post(
     if (existing.checkOutTime) throw conflict("วันนี้ตอกบัตรออกงานไปแล้ว");
 
     if (!isCheckOutAllowed(emp.workEnd, time, emp.checkOutBeforeMinutes, emp.checkOutAfterMinutes)) {
-      const before = emp.checkOutBeforeMinutes ?? 0;
-      const after = emp.checkOutAfterMinutes ?? 0;
+      const start = addMinutesToTime(emp.workEnd, -(emp.checkOutBeforeMinutes ?? 0));
       const message =
-        before === 0 && after === 0
-          ? `เช็คเอาท์ได้เฉพาะเวลาเลิกงานพอดี (${emp.workEnd}) กรุณาติดต่อแอดมินหากต้องการช่วงเวลาที่ยืดหยุ่นกว่านี้`
-          : `เช็คเอาท์ได้เฉพาะช่วง ${addMinutesToTime(emp.workEnd, -before)}-${addMinutesToTime(emp.workEnd, after)} (เวลาเลิกงาน ${emp.workEnd})`;
+        emp.checkOutAfterMinutes == null
+          ? `ยังเช็คเอาท์ไม่ได้ เช็คเอาท์ได้ตั้งแต่ ${start} เป็นต้นไป (เวลาเลิกงาน ${emp.workEnd})`
+          : `เช็คเอาท์ได้เฉพาะช่วง ${start}-${addMinutesToTime(emp.workEnd, emp.checkOutAfterMinutes)} (เวลาเลิกงาน ${emp.workEnd})`;
       throw conflict(message);
     }
 

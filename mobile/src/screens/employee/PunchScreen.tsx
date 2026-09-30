@@ -147,12 +147,11 @@ export function PunchScreen() {
   const canCheckOut = alreadyCheckedIn && !alreadyCheckedOut;
 
   const me = meQuery.data ?? employee;
-  const before = me.checkOutBeforeMinutes ?? 0;
-  const after = me.checkOutAfterMinutes ?? 0;
+  const checkOutStart = addMinutes(me.workEnd, -(me.checkOutBeforeMinutes ?? 0));
   const checkOutWindowText =
-    before === 0 && after === 0
-      ? `เช็คเอาท์ได้เฉพาะเวลาเลิกงานพอดี (${me.workEnd})`
-      : `เช็คเอาท์ได้ช่วง ${addMinutes(me.workEnd, -before)}–${addMinutes(me.workEnd, after)}`;
+    me.checkOutAfterMinutes == null
+      ? `เช็คเอาท์ได้ตั้งแต่ ${checkOutStart} เป็นต้นไป`
+      : `เช็คเอาท์ได้ช่วง ${checkOutStart}–${addMinutes(me.workEnd, me.checkOutAfterMinutes)}`;
 
   const captureBlock = (
     <>

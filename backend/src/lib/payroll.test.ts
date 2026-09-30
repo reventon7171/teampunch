@@ -63,10 +63,11 @@ describe("computeLateMinutes", () => {
 });
 
 describe("isCheckOutAllowed", () => {
-  it("with no window set (both null), only the exact workEnd minute is allowed", () => {
+  it("with no window set, blocks early checkout but allows any late checkout", () => {
     expect(isCheckOutAllowed("18:00", "18:00", null, null)).toBe(true);
     expect(isCheckOutAllowed("18:00", "17:59", null, null)).toBe(false);
-    expect(isCheckOutAllowed("18:00", "18:01", null, null)).toBe(false);
+    expect(isCheckOutAllowed("18:00", "18:01", null, null)).toBe(true);
+    expect(isCheckOutAllowed("18:00", "23:30", null, null)).toBe(true);
   });
 
   it("respects the configured before/after minute bounds", () => {
